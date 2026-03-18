@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Schema\Blueprint;
@@ -9,27 +11,27 @@ class NestedSet
     /**
      * The name of default lft column.
      */
-    const LFT = '_lft';
+    public const LFT = '_lft';
 
     /**
      * The name of default rgt column.
      */
-    const RGT = '_rgt';
+    public const RGT = '_rgt';
 
     /**
      * The name of default parent id column.
      */
-    const PARENT_ID = 'parent_id';
+    public const PARENT_ID = 'parent_id';
 
     /**
      * Insert direction.
      */
-    const BEFORE = 1;
+    public const BEFORE = 1;
 
     /**
      * Insert direction.
      */
-    const AFTER = 2;
+    public const AFTER = 2;
 
     /**
      * Add default nested set columns to the table. Also create an index.

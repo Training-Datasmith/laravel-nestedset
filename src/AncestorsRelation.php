@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +13,9 @@ class AncestorsRelation extends BaseRelation
      */
     public function addConstraints(): void
     {
-        if ( ! static::$constraints) return;
+        if (! static::$constraints) {
+            return;
+        }
 
         $this->query->whereAncestorOf($this->parent)
             ->applyNestedSetScope();

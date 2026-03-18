@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Schema\Blueprint;

@@ -1,19 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kalnoy\Nestedset;
 
-use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 
 class DescendantsRelation extends BaseRelation
 {
-
     /**
      * Set the base constraints on the relation query.
      */
     public function addConstraints(): void
     {
-        if ( ! static::$constraints) return;
+        if (! static::$constraints) {
+            return;
+        }
 
         $this->query->whereDescendantOf($this->parent)
         ->applyNestedSetScope();
