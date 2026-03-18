@@ -7,13 +7,13 @@ use Illuminate\Support\ServiceProvider;
 
 class NestedSetServiceProvider extends ServiceProvider
 {
-    public function register()
+    public function register(): void
     {
-        Blueprint::macro('nestedSet', function () {
+        Blueprint::macro('nestedSet', function (): void {
             NestedSet::columns($this);
         });
 
-        Blueprint::macro('dropNestedSet', function () {
+        Blueprint::macro('dropNestedSet', function (): void {
             NestedSet::dropColumns($this);
         });
     }

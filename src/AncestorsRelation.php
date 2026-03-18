@@ -8,10 +8,8 @@ class AncestorsRelation extends BaseRelation
 {
     /**
      * Set the base constraints on the relation query.
-     *
-     * @return void
      */
-    public function addConstraints()
+    public function addConstraints(): void
     {
         if ( ! static::$constraints) return;
 
@@ -20,9 +18,7 @@ class AncestorsRelation extends BaseRelation
     }
 
     /**
-     * @param Model $model
      * @param $related
-     *
      * @return bool
      */
     protected function matches(Model $model, $related)
@@ -46,10 +42,8 @@ class AncestorsRelation extends BaseRelation
      * @param $table
      * @param $lft
      * @param $rgt
-     *
-     * @return string
      */
-    protected function relationExistenceCondition($hash, $table, $lft, $rgt)
+    protected function relationExistenceCondition($hash, $table, $lft, $rgt): string
     {
         $key = $this->getBaseQuery()->getGrammar()->wrap($this->parent->getKeyName());
 

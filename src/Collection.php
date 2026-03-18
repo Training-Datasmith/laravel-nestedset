@@ -124,9 +124,7 @@ class Collection extends BaseCollection
     /**
      * Flatten a tree into a non recursive array.
      *
-     * @param Collection $groupedNodes
      * @param mixed $parentId
-     *
      * @return $this
      */
     protected function flattenTree(self $groupedNodes, $parentId)

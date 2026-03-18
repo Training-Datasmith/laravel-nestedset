@@ -33,10 +33,8 @@ class NestedSet
 
     /**
      * Add default nested set columns to the table. Also create an index.
-     *
-     * @param \Illuminate\Database\Schema\Blueprint $table
      */
-    public static function columns(Blueprint $table)
+    public static function columns(Blueprint $table): void
     {
         $table->unsignedInteger(self::LFT)->default(0);
         $table->unsignedInteger(self::RGT)->default(0);
@@ -47,10 +45,8 @@ class NestedSet
 
     /**
      * Drop NestedSet columns.
-     *
-     * @param \Illuminate\Database\Schema\Blueprint $table
      */
-    public static function dropColumns(Blueprint $table)
+    public static function dropColumns(Blueprint $table): void
     {
         $columns = static::getDefaultColumns();
 
@@ -60,10 +56,8 @@ class NestedSet
 
     /**
      * Get a list of default columns.
-     *
-     * @return array
      */
-    public static function getDefaultColumns()
+    public static function getDefaultColumns(): array
     {
         return [ static::LFT, static::RGT, static::PARENT_ID ];
     }
@@ -72,10 +66,8 @@ class NestedSet
      * Replaces instanceof calls for this trait.
      *
      * @param mixed $node
-     *
-     * @return bool
      */
-    public static function isNode($node)
+    public static function isNode($node): bool
     {
         return is_object($node) && in_array(NodeTrait::class, (array)$node);
     }

@@ -30,9 +30,6 @@ abstract class BaseRelation extends Relation
 
     /**
      * AncestorsRelation constructor.
-     *
-     * @param QueryBuilder $builder
-     * @param Model $model
      */
     public function __construct(QueryBuilder $builder, Model $model)
     {
@@ -44,9 +41,7 @@ abstract class BaseRelation extends Relation
     }
 
     /**
-     * @param Model $model
      * @param $related
-     *
      * @return bool
      */
     abstract protected function matches(Model $model, $related);
@@ -70,8 +65,6 @@ abstract class BaseRelation extends Relation
     abstract protected function relationExistenceCondition($hash, $table, $lft, $rgt);
 
     /**
-     * @param EloquentBuilder $query
-     * @param EloquentBuilder $parent
      * @param array $columns
      *
      * @return mixed
@@ -101,9 +94,7 @@ abstract class BaseRelation extends Relation
     /**
      * Initialize the relation on a set of models.
      *
-     * @param  array $models
      * @param  string $relation
-     *
      * @return array
      */
     public function initRelation(array $models, $relation)
@@ -135,13 +126,11 @@ abstract class BaseRelation extends Relation
     /**
      * Set the constraints for an eager load of the relation.
      *
-     * @param  array $models
      *
-     * @return void
      */
-    public function addEagerConstraints(array $models)
+    public function addEagerConstraints(array $models): void
     {
-        $this->query->whereNested(function (Builder $inner) use ($models) {
+        $this->query->whereNested(function (Builder $inner) use ($models): void {
             // We will use this query in order to apply constraints to the
             // base query builder
             $outer = $this->parent->newQuery()->setQuery($inner);
@@ -155,8 +144,6 @@ abstract class BaseRelation extends Relation
     /**
      * Match the eagerly loaded results to their parents.
      *
-     * @param  array $models
-     * @param  EloquentCollection $results
      * @param  string $relation
      *
      * @return array
@@ -173,8 +160,6 @@ abstract class BaseRelation extends Relation
     }
 
     /**
-     * @param Model $model
-     * @param EloquentCollection $results
      *
      * @return Collection
      */
