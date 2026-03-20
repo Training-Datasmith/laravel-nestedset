@@ -14,7 +14,7 @@ class Collection extends Base_Collection
      *
      * @return $this
      */
-    public function link_nodes()
+    public function link_nodes(): static
     {
         if ($this->is_empty()) {
             return $this;
@@ -41,11 +41,10 @@ class Collection extends Base_Collection
      *
      * If `$root` is provided, the tree will contain only descendants of that node.
      *
-     * @param mixed $root
-     *
-     * @return Collection
+     * @param  int|false $root Root node ID to filter by, or false to return all root-level nodes.
+     * @return static          A new Collection containing only the root-level nodes, with children nested.
      */
-    public function to_tree($root = false)
+    public function to_tree($root = false): static
     {
         if ($this->is_empty()) {
             return new static();
