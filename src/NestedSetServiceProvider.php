@@ -1,22 +1,19 @@
 <?php
 
-declare(strict_types=1);
-
+declare (strict_types=1);
 namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\ServiceProvider;
-
-class NestedSetServiceProvider extends ServiceProvider
+use Illuminate\Support\Service_Provider;
+class Nested_Set_Service_Provider extends Service_Provider
 {
     public function register(): void
     {
         Blueprint::macro('nestedSet', function (): void {
-            NestedSet::columns($this);
+            Nested_Set::columns($this);
         });
-
         Blueprint::macro('dropNestedSet', function (): void {
-            NestedSet::dropColumns($this);
+            Nested_Set::drop_columns($this);
         });
     }
 }

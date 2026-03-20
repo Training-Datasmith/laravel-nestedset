@@ -1,56 +1,48 @@
 <?php
 
-declare(strict_types=1);
-
+declare (strict_types=1);
 namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Eloquent\Model;
-
-class AncestorsRelation extends BaseRelation
+class Ancestors_Relation extends Base_Relation
 {
     /**
      * Set the base constraints on the relation query.
      */
-    public function addConstraints(): void
+    public function add_constraints(): void
     {
-        if (! static::$constraints) {
+        if (!static::$constraints) {
             return;
         }
-
-        $this->query->whereAncestorOf($this->parent)
-            ->applyNestedSetScope();
+        $this->query->where_ancestor_of($this->parent)->apply_nested_set_scope();
     }
-
     /**
      * @param $related
      * @return bool
      */
     protected function matches(Model $model, $related)
     {
-        return $related->isAncestorOf($model);
+        return $related->is_ancestor_of($model);
     }
-
     /**
      * @param QueryBuilder $query
      * @param Model $model
      *
      * @return void
      */
-    protected function addEagerConstraint($query, $model)
+    protected function add_eager_constraint($query, $model)
     {
-        $query->orWhereAncestorOf($model);
+        $query->or_where_ancestor_of($model);
     }
-
     /**
      * @param $hash
      * @param $table
      * @param $lft
      * @param $rgt
      */
-    protected function relationExistenceCondition($hash, $table, $lft, $rgt): string
+    protected function relation_existence_condition($hash, $table, $lft, $rgt): string
     {
-        $key = $this->getBaseQuery()->getGrammar()->wrap($this->parent->getKeyName());
-
-        return "{$table}.{$rgt} between {$hash}.{$lft} and {$hash}.{$rgt} and $table.$key <> $hash.$key";
+        $key = $this->get_base_query()->get_grammar()->wrap($this->parent->get_key_name());
+        return "{$table}.{$rgt} between {$hash}.{$lft} and {$hash}.{$rgt} and {$table}.{$key} <> {$hash}.{$key}";
     }
 }

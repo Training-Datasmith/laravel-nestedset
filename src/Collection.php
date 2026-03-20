@@ -1,13 +1,11 @@
 <?php
 
-declare(strict_types=1);
-
+declare (strict_types=1);
 namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Eloquent\Collection as BaseCollection;
 use Illuminate\Database\Eloquent\Model;
-
-class Collection extends BaseCollection
+class Collection extends Base_Collection
 {
     /**
      * Fill `parent` and `children` relationships for every node in the collection.
@@ -16,33 +14,26 @@ class Collection extends BaseCollection
      *
      * @return $this
      */
-    public function linkNodes()
+    public function link_nodes()
     {
-        if ($this->isEmpty()) {
+        if ($this->is_empty()) {
             return $this;
         }
-
-        $groupedNodes = $this->groupBy($this->first()->getParentIdName());
-
+        $grouped_nodes = $this->group_by($this->first()->get_parent_id_name());
         /** @var NodeTrait|Model $node */
         foreach ($this->items as $node) {
-            if (! $node->getParentId()) {
-                $node->setRelation('parent', null);
+            if (!$node->get_parent_id()) {
+                $node->set_relation('parent', null);
             }
-
-            $children = $groupedNodes->get($node->getKey(), [ ]);
-
+            $children = $grouped_nodes->get($node->get_key(), []);
             /** @var Model|NodeTrait $child */
             foreach ($children as $child) {
-                $child->setRelation('parent', $node);
+                $child->set_relation('parent', $node);
             }
-
-            $node->setRelation('children', BaseCollection::make($children));
+            $node->set_relation('children', Base_Collection::make($children));
         }
-
         return $this;
     }
-
     /**
      * Build a tree from a list of nodes. Each item will have set children relation.
      *
@@ -54,58 +45,47 @@ class Collection extends BaseCollection
      *
      * @return Collection
      */
-    public function toTree($root = false)
+    public function to_tree($root = false)
     {
-        if ($this->isEmpty()) {
+        if ($this->is_empty()) {
             return new static();
         }
-
-        $this->linkNodes();
-
-        $items = [ ];
-
-        $root = $this->getRootNodeId($root);
-
+        $this->link_nodes();
+        $items = [];
+        $root = $this->get_root_node_id($root);
         /** @var Model|NodeTrait $node */
         foreach ($this->items as $node) {
-            if ($node->getParentId() == $root) {
+            if ($node->get_parent_id() == $root) {
                 $items[] = $node;
             }
         }
-
         return new static($items);
     }
-
     /**
      * @param mixed $root
      *
      * @return int
      */
-    protected function getRootNodeId($root = false)
+    protected function get_root_node_id($root = false)
     {
-        if (NestedSet::isNode($root)) {
-            return $root->getKey();
+        if (Nested_Set::is_node($root)) {
+            return $root->get_key();
         }
-
         if ($root !== false) {
             return $root;
         }
-
         // If root node is not specified we take parent id of node with
         // least lft value as root node id.
-        $leastValue = null;
-
+        $least_value = null;
         /** @var Model|NodeTrait $node */
         foreach ($this->items as $node) {
-            if ($leastValue === null || $node->getLft() < $leastValue) {
-                $leastValue = $node->getLft();
-                $root = $node->getParentId();
+            if ($least_value === null || $node->get_lft() < $least_value) {
+                $least_value = $node->get_lft();
+                $root = $node->get_parent_id();
             }
         }
-
         return $root;
     }
-
     /**
      * Build a list of nodes that retain the order that they were pulled from
      * the database.
@@ -114,34 +94,27 @@ class Collection extends BaseCollection
      *
      * @return static
      */
-    public function toFlatTree($root = false)
+    public function to_flat_tree($root = false)
     {
         $result = new static();
-
-        if ($this->isEmpty()) {
+        if ($this->is_empty()) {
             return $result;
         }
-
-        $groupedNodes = $this->groupBy($this->first()->getParentIdName());
-
-        return $result->flattenTree($groupedNodes, $this->getRootNodeId($root));
+        $grouped_nodes = $this->group_by($this->first()->get_parent_id_name());
+        return $result->flatten_tree($grouped_nodes, $this->get_root_node_id($root));
     }
-
     /**
      * Flatten a tree into a non recursive array.
      *
      * @param mixed $parentId
      * @return $this
      */
-    protected function flattenTree(self $groupedNodes, $parentId)
+    protected function flatten_tree(self $grouped_nodes, $parent_id)
     {
-        foreach ($groupedNodes->get($parentId, []) as $node) {
+        foreach ($grouped_nodes->get($parent_id, []) as $node) {
             $this->push($node);
-
-            $this->flattenTree($groupedNodes, $node->getKey());
+            $this->flatten_tree($grouped_nodes, $node->get_key());
         }
-
         return $this;
     }
-
 }
