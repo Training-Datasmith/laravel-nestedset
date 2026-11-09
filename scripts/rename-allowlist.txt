@@ -8,4 +8,6 @@ tests/Node_Test.php Node_Test::setUpBeforeClass setUpBeforeClass
 tests/Scoped_Node_Test.php Scoped_Node_Test::setUp setUp
 tests/Scoped_Node_Test.php Scoped_Node_Test::tearDown tearDown
 tests/Scoped_Node_Test.php Scoped_Node_Test::setUpBeforeClass setUpBeforeClass
+tests/Node_Test.php Node_Test::find_category withTrashed
+src/Node_Trait.php Kalnoy\Nestedset\Node_Trait::new_nested_set_query withTrashed
 src/Query_Builder.php Kalnoy\Nestedset\Query_Builder::rebuild_tree withTrashed

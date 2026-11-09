@@ -20,13 +20,26 @@ foreach (array_unique($dockerfiles) as $dockerfile) {
         fwrite(STDERR, "{$dockerfile}: insecure http:// apt or download URL\n");
         $failed = true;
     }
+    if (preg_match('/--allow-unauthenticated\b/i', $content)) {
+        fwrite(STDERR, "{$dockerfile}: --allow-unauthenticated\n");
+        $failed = true;
+    }
     if (preg_match('/AllowUnauthenticated|AllowInsecureRepositories|trusted=yes|Acquire::AllowInsecureRepositories/i', $content)) {
         fwrite(STDERR, "{$dockerfile}: apt signature bypass directive\n");
         $failed = true;
     }
-    if (preg_match('/Acquire::Check-Valid-Until\s+"false"/', $content) && !str_contains($content, 'archive.debian.org')) {
-        fwrite(STDERR, "{$dockerfile}: global Check-Valid-Until false outside archive.debian.org\n");
-        $failed = true;
+    foreach (preg_split('/\R/', $content) ?: [] as $line) {
+        if (!preg_match('/check-valid-until\s*=\s*no/i', $line)) {
+            continue;
+        }
+        if (!str_contains($line, 'archive.debian.org')) {
+            fwrite(STDERR, "{$dockerfile}: check-valid-until=no outside archive.debian.org\n");
+            $failed = true;
+        }
+        if (preg_match('/\bhttp:\/\//', $line)) {
+            fwrite(STDERR, "{$dockerfile}: insecure apt line with check-valid-until\n");
+            $failed = true;
+        }
     }
 }
 
@@ -35,7 +48,7 @@ foreach ($iterator as $file) {
     if (!$file instanceof SplFileInfo || !$file->isFile()) {
         continue;
     }
-  $rel = substr($file->getPathname(), strlen($root) + 1);
+    $rel = substr($file->getPathname(), strlen($root) + 1);
     if (str_starts_with($rel, 'vendor/') || str_starts_with($rel, '.git/')) {
         continue;
     }

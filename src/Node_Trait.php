@@ -402,7 +402,7 @@ trait Node_Trait
     /**
      * @param $lft
      * @param $rgt
-     * @param $parentId
+     * @param $parent_id
      *
      * @return $this
      */
@@ -505,7 +505,7 @@ trait Node_Trait
     /**
      * Restore the descendants.
      *
-     * @param $deletedAt
+     * @param $deleted_at
      */
     protected function restore_descendants($deleted_at)
     {
@@ -848,7 +848,7 @@ trait Node_Trait
      */
     protected function getArrayableRelations()
     {
-        $result = parent::get_arrayable_relations();
+        $result = parent::getArrayableRelations();
         // To fix #17 when converting tree to json falling to infinite recursion.
         unset($result['parent']);
         return $result;

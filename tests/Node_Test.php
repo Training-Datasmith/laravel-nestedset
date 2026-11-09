@@ -113,13 +113,13 @@ class Node_Test extends PHPUnit\Framework\TestCase
      *
      * @return \Category
      */
-    public function find_category($name, $withTrashed = false)
+    public function find_category($name, $with_trashed = false)
     {
         $q = new Category();
 
-        $q = $withTrashed ? $q->withTrashed() : $q->newQuery();
+        $q = $with_trashed ? $q->withTrashed() : $q->newQuery();
 
-        return $q->whereName($name)->first();
+        return $q->where('name', '=', $name)->first();
     }
 
     public function test_tree_not_broken()
@@ -722,20 +722,20 @@ class Node_Test extends PHPUnit\Framework\TestCase
     public function test_is_dirty_movement()
     {
         $node = $this->find_category('apple');
-        $otherNode = $this->find_category('samsung');
+        $other_node = $this->find_category('samsung');
 
         $this->assertFalse($node->isDirty());
 
-        $node->after_node($otherNode);
+        $node->after_node($other_node);
 
         $this->assertTrue($node->isDirty());
 
         $node = $this->find_category('apple');
-        $otherNode = $this->find_category('samsung');
+        $other_node = $this->find_category('samsung');
 
         $this->assertFalse($node->isDirty());
 
-        $node->append_to_node($otherNode);
+        $node->append_to_node($other_node);
 
         $this->assertTrue($node->isDirty());
     }

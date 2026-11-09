@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Kalnoy\Nestedset\Nested_Set;
 
-class ScopedNode_Test extends PHPUnit\Framework\TestCase
+class Scoped_Node_Test extends PHPUnit\Framework\TestCase
 {
     public static function setUpBeforeClass(): void
     {
@@ -43,9 +43,9 @@ class ScopedNode_Test extends PHPUnit\Framework\TestCase
         Capsule::table('menu_items')->truncate();
     }
 
-    public function assert_tree_not_broken($menuId)
+    public function assert_tree_not_broken($menu_id)
     {
-        $this->assertFalse(Menu_Item::scoped([ 'menu_id' => $menuId ])->is_broken());
+        $this->assertFalse(Menu_Item::scoped([ 'menu_id' => $menu_id ])->is_broken());
     }
 
     public function test_not_broken()
@@ -224,17 +224,17 @@ class ScopedNode_Test extends PHPUnit\Framework\TestCase
 
     public function test_eager_loading_ancestors_with_scope()
     {
-        $filteredNodes = Menu_Item::where('title', 'menu item 3')->with(['ancestors'])->get();
+        $filtered_nodes = Menu_Item::where('title', 'menu item 3')->with(['ancestors'])->get();
 
-        $this->assertEquals(2, $filteredNodes->find(5)->ancestors[0]->id);
-        $this->assertEquals(4, $filteredNodes->find(6)->ancestors[0]->id);
+        $this->assertEquals(2, $filtered_nodes->find(5)->ancestors[0]->id);
+        $this->assertEquals(4, $filtered_nodes->find(6)->ancestors[0]->id);
     }
 
     public function test_eager_loading_descendants_with_scope()
     {
-        $filteredNodes = Menu_Item::where('title', 'menu item 2')->with(['descendants'])->get();
+        $filtered_nodes = Menu_Item::where('title', 'menu item 2')->with(['descendants'])->get();
 
-        $this->assertEquals(5, $filteredNodes->find(2)->descendants[0]->id);
-        $this->assertEquals(6, $filteredNodes->find(4)->descendants[0]->id);
+        $this->assertEquals(5, $filtered_nodes->find(2)->descendants[0]->id);
+        $this->assertEquals(6, $filtered_nodes->find(4)->descendants[0]->id);
     }
 }

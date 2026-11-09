@@ -5,16 +5,16 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 
-/** @var array<string, array{alias: string, reference: string}> $expected */
+/** @var array<string, array{alias: string, reference: string, version: string}> $expected */
 $expected = [
-    'psr/clock' => ['alias' => '1.0.0', 'reference' => '3d3053da340ec84ff02c3765946a19ac021e0b1d'],
-    'psr/container' => ['alias' => '2.0.2', 'reference' => '57d8cac2ff3db652075e2d6e44e0ede70720e8e5'],
-    'psr/simple-cache' => ['alias' => '3.0.0', 'reference' => 'd03ac6ca8193e8b800f667a63745f1db7806f412'],
-    'symfony/polyfill-ctype' => ['alias' => '1.33.0', 'reference' => '178d8180c34087830dbcdb5e67fa8b61d28016ac'],
-    'symfony/polyfill-intl-grapheme' => ['alias' => '1.33.0', 'reference' => '137f223b5cb3ba256d8c52adea5e0e8594708e71'],
-    'symfony/polyfill-intl-normalizer' => ['alias' => '1.33.0', 'reference' => 'c6839534bfcaf6a8b566e44e5bb971e672a678cd'],
-    'symfony/polyfill-mbstring' => ['alias' => '1.33.0', 'reference' => '2cecae254e4ffc2c20ac379c5cd23d91c82109df'],
-    'voku/portable-ascii' => ['alias' => '2.0.3', 'reference' => '7671a909020d1c6a25dcb2f6e65e8b1776eaa2f5'],
+    'psr/clock' => ['alias' => '1.0.0', 'reference' => '3d3053da340ec84ff02c3765946a19ac021e0b1d', 'version' => 'dev-remote-test-2026-10-07'],
+    'psr/container' => ['alias' => '2.0.2', 'reference' => '57d8cac2ff3db652075e2d6e44e0ede70720e8e5', 'version' => 'dev-remote-test-2026-10-07'],
+    'psr/simple-cache' => ['alias' => '3.0.0', 'reference' => 'd03ac6ca8193e8b800f667a63745f1db7806f412', 'version' => 'dev-remote-test-2026-11-08'],
+    'symfony/polyfill-ctype' => ['alias' => '1.33.0', 'reference' => '178d8180c34087830dbcdb5e67fa8b61d28016ac', 'version' => 'dev-remote-test-2026-10-07'],
+    'symfony/polyfill-intl-grapheme' => ['alias' => '1.33.0', 'reference' => '137f223b5cb3ba256d8c52adea5e0e8594708e71', 'version' => 'dev-remote-test-2026-10-07'],
+    'symfony/polyfill-intl-normalizer' => ['alias' => '1.33.0', 'reference' => 'c6839534bfcaf6a8b566e44e5bb971e672a678cd', 'version' => 'dev-remote-test-2026-10-07'],
+    'symfony/polyfill-mbstring' => ['alias' => '1.33.0', 'reference' => '2cecae254e4ffc2c20ac379c5cd23d91c82109df', 'version' => 'dev-remote-test-2026-10-07'],
+    'voku/portable-ascii' => ['alias' => '2.0.3', 'reference' => '7671a909020d1c6a25dcb2f6e65e8b1776eaa2f5', 'version' => 'dev-remote-test-2026-11-09'],
 ];
 
 /** @var array<string, list<string>> $packagistOnly */
@@ -32,10 +32,25 @@ $packagistOnly = [
     ],
 ];
 
+/** @var array<string, list<string>> $forbiddenIndexReferences */
+$forbiddenIndexReferences = [
+    'phpunit/phpunit' => [
+        'a37d66fabf01af0eedabffe271b70dbe71723001',
+        '698cbbc1e75a1ef1968f9cbfec89be056b288d0f',
+    ],
+    'nesbot/carbon' => [
+        'd912961eaba732f841601cba835730f2926a7820',
+    ],
+    'doctrine/inflector' => [
+        '37c71ea111d7bd4fc42a4402ccdaaad8a2c9e405',
+        '7a4d5f45d684553363a45a6805dbb0a834be6f17',
+    ],
+];
+
 /**
  * @param array<string, mixed> $installedPhp
  * @param array<string, mixed> $installedJson
- * @param array<string, array{alias: string, reference: string}> $expectedMap
+ * @param array<string, array{alias: string, reference: string, version: string}> $expectedMap
  * @return list<array{side: string, package: string, message: string}>
  */
 function evaluate_cluster_pins(array $installedPhp, array $installedJson, array $expectedMap): array
@@ -45,10 +60,10 @@ function evaluate_cluster_pins(array $installedPhp, array $installedJson, array 
     $versions = $installedPhp['versions'] ?? [];
     $jsonPackages = [];
     foreach (array_merge($installedJson['packages'] ?? [], $installedJson['packages-dev'] ?? []) as $package) {
-        if (!isset($package['name'], $package['source']['reference'])) {
+        if (!isset($package['name'])) {
             continue;
         }
-        $jsonPackages[$package['name']] = strtolower((string) $package['source']['reference']);
+        $jsonPackages[$package['name']] = $package;
     }
 
     foreach ($expectedMap as $package => $want) {
@@ -80,11 +95,23 @@ function evaluate_cluster_pins(array $installedPhp, array $installedJson, array 
             $errors[] = ['side' => 'installed.json', 'package' => $package, 'message' => 'package is not installed'];
             continue;
         }
-        if ($jsonPackages[$package] !== strtolower($want['reference'])) {
+        $json = $jsonPackages[$package];
+        $jsonRef = isset($json['source']['reference']) ? strtolower((string) $json['source']['reference']) : '';
+        if ($jsonRef === '') {
+            $errors[] = ['side' => 'installed.json', 'package' => $package, 'message' => 'missing source.reference'];
+        } elseif ($jsonRef !== strtolower($want['reference'])) {
             $errors[] = [
                 'side' => 'installed.json',
                 'package' => $package,
-                'message' => "source.reference {$jsonPackages[$package]} != expected {$want['reference']}",
+                'message' => "source.reference {$jsonRef} != expected {$want['reference']}",
+            ];
+        }
+        $jsonVersion = (string) ($json['version'] ?? '');
+        if ($jsonVersion !== $want['version']) {
+            $errors[] = [
+                'side' => 'installed.json',
+                'package' => $package,
+                'message' => "version {$jsonVersion} != expected {$want['version']}",
             ];
         }
     }
@@ -164,7 +191,7 @@ function run_wrong_sha_demos(): void
 {
     $fixture = demo_fixture();
     $map = [
-        'demo/pkg' => ['alias' => '1.2.3', 'reference' => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+        'demo/pkg' => ['alias' => '1.2.3', 'reference' => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'version' => 'dev-demo'],
     ];
 
     $phpWrong = $fixture;
@@ -180,8 +207,23 @@ function run_wrong_sha_demos(): void
     $jsonWrong['installedJson']['packages-dev'][0]['source']['reference'] = 'cccccccccccccccccccccccccccccccccccccccc';
     $errsJson = evaluate_cluster_pins($jsonWrong['installedPhp'], $jsonWrong['installedJson'], $map);
     $jsonSides = array_unique(array_column($errsJson, 'side'));
-    if ($errsJson === [] || $jsonSides !== ['installed.json']) {
+    if ($jsonSides === [] || in_array('installed.php', $jsonSides, true)) {
         fwrite(STDERR, "Wrong-SHA demo: installed.json mutation must fail only installed.json side.\n");
+        exit(1);
+    }
+
+    $versionWrong = $fixture;
+    $versionWrong['installedJson']['packages-dev'][0]['version'] = 'dev-wrong';
+    $errsVer = evaluate_cluster_pins($versionWrong['installedPhp'], $versionWrong['installedJson'], $map);
+    if ($errsVer === []) {
+        fwrite(STDERR, "Wrong-SHA demo: installed.json version mutation must fail.\n");
+        exit(1);
+    }
+
+    $stub_never_reports = static fn (array $installedPhp, array $installedJson, array $expectedMap): array => [];
+    if ($stub_never_reports($phpWrong['installedPhp'], $phpWrong['installedJson'], $map) !== []
+        || evaluate_cluster_pins($phpWrong['installedPhp'], $phpWrong['installedJson'], $map) === []) {
+        fwrite(STDERR, "Wrong-SHA demo: checker must reject mutated installed.php reference.\n");
         exit(1);
     }
 
@@ -189,14 +231,27 @@ function run_wrong_sha_demos(): void
     fwrite(STDOUT, "Wrong-SHA demo failed on installed.json only.\n");
 }
 
-function assert_packagist_gaps(array $installedJson, array $packagistOnly): void
-{
+/**
+ * @param array<string, mixed> $installedPhp
+ * @param array<string, mixed> $installedJson
+ * @param array<string, list<string>> $packagistOnly
+ * @param array<string, list<string>> $forbiddenIndexReferences
+ */
+function assert_packagist_gaps(
+    array $installedPhp,
+    array $installedJson,
+    array $packagistOnly,
+    array $forbiddenIndexReferences
+): void {
     $failed = false;
+    $phpVersions = $installedPhp['versions'] ?? [];
+
     foreach (array_merge($installedJson['packages'] ?? [], $installedJson['packages-dev'] ?? []) as $package) {
         $name = $package['name'] ?? null;
         if (!is_string($name) || !isset($packagistOnly[$name])) {
             continue;
         }
+
         $url = (string) ($package['source']['url'] ?? '');
         foreach ($packagistOnly[$name] as $allowed) {
             if (str_starts_with($url, $allowed)) {
@@ -206,6 +261,25 @@ function assert_packagist_gaps(array $installedJson, array $packagistOnly): void
         if (stripos($url, 'github.com/Training-Datasmith/') !== false) {
             fwrite(STDERR, "Packagist gap violated for {$name}: Training-Datasmith source {$url}\n");
             $failed = true;
+        }
+
+        $jsonRef = strtolower((string) ($package['source']['reference'] ?? ''));
+        foreach ($forbiddenIndexReferences[$name] ?? [] as $forbidden) {
+            if ($jsonRef === strtolower($forbidden)) {
+                fwrite(STDERR, "Packagist gap violated for {$name}: index SHA in installed.json ({$jsonRef})\n");
+                $failed = true;
+            }
+        }
+
+        $phpEntry = $phpVersions[$name] ?? null;
+        if (is_array($phpEntry)) {
+            $phpRef = strtolower((string) ($phpEntry['reference'] ?? ''));
+            foreach ($forbiddenIndexReferences[$name] ?? [] as $forbidden) {
+                if ($phpRef === strtolower($forbidden)) {
+                    fwrite(STDERR, "Packagist gap violated for {$name}: index SHA in installed.php ({$phpRef})\n");
+                    $failed = true;
+                }
+            }
         }
     }
     if ($failed) {
@@ -217,7 +291,7 @@ run_wrong_sha_demos();
 
 $vendor = load_vendor_pin_sources($root);
 $errors = evaluate_cluster_pins($vendor['installedPhp'], $vendor['installedJson'], $expected);
-assert_packagist_gaps($vendor['installedJson'], $packagistOnly);
+assert_packagist_gaps($vendor['installedPhp'], $vendor['installedJson'], $packagistOnly, $forbiddenIndexReferences);
 
 if ($errors !== []) {
     foreach ($errors as $error) {

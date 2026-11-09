@@ -11,16 +11,27 @@ if ($argc < 2) {
 $junitPath = $argv[1];
 $allowPath = __DIR__ . '/allowed-skips.txt';
 
-/** @var array<string, true> $allowed */
-$allowed = [];
-foreach (file($allowPath, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
-    $line = trim($line);
-    if ($line === '' || str_starts_with($line, '#')) {
-        continue;
+/**
+ * @return array<string, true>
+ */
+function load_skip_allowlist(string $allowPath): array
+{
+    /** @var array<string, true> $allowed */
+    $allowed = [];
+    foreach (file($allowPath, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+        $allowed[$line] = true;
     }
-    $allowed[$line] = true;
+
+    return $allowed;
 }
 
+/**
+ * @return list<string>
+ */
 function parse_skips(string $junitPath): array
 {
     $xml = new DOMDocument();
@@ -29,7 +40,7 @@ function parse_skips(string $junitPath): array
         exit(2);
     }
     $xpath = new DOMXPath($xml);
-  $skips = [];
+    $skips = [];
     foreach ($xpath->query('//testcase[skipped]') as $case) {
         if (!$case instanceof DOMElement) {
             continue;
@@ -52,51 +63,69 @@ function parse_skips(string $junitPath): array
     return $skips;
 }
 
+/**
+ * @param list<string> $skips
+ * @param array<string, true> $allowed
+ */
+function evaluate_skips(array $skips, array $allowed, bool $quiet = false): bool
+{
+    $failed = false;
+    foreach ($skips as $skip) {
+        if (!isset($allowed[$skip])) {
+            if (!$quiet) {
+                fwrite(STDERR, "Unlisted skipped test: {$skip}\n");
+            }
+            $failed = true;
+        }
+    }
+    foreach (array_keys($allowed) as $method) {
+        if (!in_array($method, $skips, true)) {
+            if (!$quiet) {
+                fwrite(STDERR, "Allowed skip missing from run: {$method}\n");
+            }
+            $failed = true;
+        }
+    }
+
+    return $failed;
+}
+
 function demo_skips(): void
 {
     $base = '<testsuites><testsuite name="Demo" tests="2" assertions="2">';
-    $unlisted = $base . '<testcase class="Node_Test" name="test_foo"><skipped/></testcase></testsuite></testsuites>';
-    $listedMissing = $base . '</testsuite></testsuites>';
+    $unlistedXml = $base . '<testcase class="Node_Test" name="test_foo"><skipped/></testcase></testsuite></testsuites>';
+    $missingListedXml = $base . '</testsuite></testsuites>';
 
     $tmp = tempnam(sys_get_temp_dir(), 'junit');
-    file_put_contents($tmp, $unlisted);
+    file_put_contents($tmp, $unlistedXml);
     $skips = parse_skips($tmp);
     if ($skips !== ['Node_Test::test_foo']) {
         fwrite(STDERR, "Skip demo: unexpected unlisted parse\n");
         exit(1);
     }
-    $allow = [];
-    if (!isset($allow['Node_Test::test_foo'])) {
-        fwrite(STDOUT, "Skip demo: unlisted skip would fail gate\n");
+    if (!evaluate_skips($skips, [], true)) {
+        fwrite(STDERR, "Skip demo: unlisted skip must fail gate\n");
+        exit(1);
     }
+    fwrite(STDOUT, "Skip demo: unlisted skip would fail gate\n");
 
-    file_put_contents($tmp, $listedMissing);
-    $allow = ['Node_Test::test_missing' => true];
+    file_put_contents($tmp, $missingListedXml);
     $skips = parse_skips($tmp);
-    if ($skips === [] && isset($allow['Node_Test::test_missing'])) {
-        fwrite(STDOUT, "Skip demo: missing listed skip would fail gate\n");
+    $allow = ['Node_Test::test_missing' => true];
+    if (!evaluate_skips($skips, $allow, true)) {
+        fwrite(STDERR, "Skip demo: missing listed skip must fail gate\n");
+        exit(1);
     }
+    fwrite(STDOUT, "Skip demo: missing listed skip would fail gate\n");
+
     unlink($tmp);
 }
 
 demo_skips();
 
+$allowed = load_skip_allowlist($allowPath);
 $skips = parse_skips($junitPath);
-$failed = false;
-foreach ($skips as $skip) {
-    if (!isset($allowed[$skip])) {
-        fwrite(STDERR, "Unlisted skipped test: {$skip}\n");
-        $failed = true;
-    }
-}
-foreach (array_keys($allowed) as $method) {
-    if (!in_array($method, $skips, true)) {
-        fwrite(STDERR, "Allowed skip missing from run: {$method}\n");
-        $failed = true;
-    }
-}
-
-if ($failed) {
+if (evaluate_skips($skips, $allowed)) {
     exit(1);
 }
 

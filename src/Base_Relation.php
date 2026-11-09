@@ -84,7 +84,7 @@ abstract class Base_Relation extends Relation
     /**
      * Get a relationship join table hash.
      *
-     * @param  bool $incrementJoinCount
+     * @param  bool $increment_join_count
      * @return string
      */
     public function getRelationCountHash($increment_join_count = true)

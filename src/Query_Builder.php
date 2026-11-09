@@ -67,7 +67,7 @@ class Query_Builder extends Builder
      * @since 2.0
      *
      * @param mixed $id
-     * @param bool $andSelf
+     * @param bool $and_self
      *
      * @param string $boolean
      *
@@ -104,7 +104,7 @@ class Query_Builder extends Builder
     }
     /**
      * @param $id
-     * @param bool $andSelf
+     * @param bool $and_self
      *
      * @return $this
      */
@@ -181,7 +181,7 @@ class Query_Builder extends Builder
      * @param mixed $id
      * @param string $boolean
      * @param bool $not
-     * @param bool $andSelf
+     * @param bool $and_self
      *
      * @return $this
      */
@@ -248,7 +248,7 @@ class Query_Builder extends Builder
      * @since 2.0
      *
      * @param mixed $id
-     * @param bool $andSelf
+     * @param bool $and_self
      * @return Collection
      */
     public function descendants_of($id, array $columns = ['*'], $and_self = false)
@@ -713,7 +713,7 @@ class Query_Builder extends Builder
         return count($updated) + $moved;
     }
     /**
-     * @param $parentId
+     * @param $parent_id
      * @param int $cut
      * @return int
      * @internal param int $fixed
@@ -780,7 +780,7 @@ class Query_Builder extends Builder
         return $this->rebuild_tree($data, $delete, $root);
     }
     /**
-     * @param mixed $parentId
+     * @param mixed $parent_id
      */
     protected function build_rebuild_dictionary(array &$dictionary, array $data, array &$existing, $parent_id = null)
     {
