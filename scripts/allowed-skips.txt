@@ -1,0 +1,1 @@
+# One Class::method per line (exact). Empty allowlist: any skip fails the gate.

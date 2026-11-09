@@ -1,0 +1,11 @@
+# file Class::method upstreamIdentifier
+src/Node_Trait.php Node_Trait::bootNode_Trait bootSoftDeletes
+src/Node_Trait.php Node_Trait::uses_soft_delete bootSoftDeletes
+src/Node_Trait.php Node_Trait::setParentIdAttribute findOrFail
+tests/Node_Test.php Node_Test::setUp setUp
+tests/Node_Test.php Node_Test::tearDown tearDown
+tests/Node_Test.php Node_Test::setUpBeforeClass setUpBeforeClass
+tests/Scoped_Node_Test.php Scoped_Node_Test::setUp setUp
+tests/Scoped_Node_Test.php Scoped_Node_Test::tearDown tearDown
+tests/Scoped_Node_Test.php Scoped_Node_Test::setUpBeforeClass setUpBeforeClass
+src/Query_Builder.php Kalnoy\Nestedset\Query_Builder::rebuild_tree withTrashed

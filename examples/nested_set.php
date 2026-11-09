@@ -14,36 +14,36 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Kalnoy\Nestedset\NodeTrait;
+use Kalnoy\Nestedset\Node_Trait;
 use Kalnoy\Nestedset\Collection;
-use Kalnoy\Nestedset\NestedSet;
+use Kalnoy\Nestedset\Nested_Set;
 
-// --- Show NestedSet constants ---
-echo "NestedSet column names:\n";
-echo "  LFT: "       . NestedSet::LFT       . "\n";
-echo "  RGT: "       . NestedSet::RGT       . "\n";
-echo "  PARENT_ID: " . NestedSet::PARENT_ID . "\n\n";
+// --- Show Nested_Set constants ---
+echo "Nested_Set column names:\n";
+echo "  LFT: "       . Nested_Set::LFT       . "\n";
+echo "  RGT: "       . Nested_Set::RGT       . "\n";
+echo "  PARENT_ID: " . Nested_Set::PARENT_ID . "\n\n";
 
-// --- Demonstrate collection toTree() on a flat list of nodes ---
-// In a real app: Category::get()->toTree() — the nodes come from DB with _lft/_rgt set.
+// --- Demonstrate collection to_tree() on a flat list of nodes ---
+// In a real app: Category::get()->to_tree() — the nodes come from DB with _lft/_rgt set.
 // We show the Collection class exists and is importable.
 $collection = new Collection();
-echo "Empty collection toTree() returns: " . get_class($collection->toTree()) . "\n\n";
+echo "Empty collection to_tree() returns: " . get_class($collection->to_tree()) . "\n\n";
 
-// --- Show NodeTrait integration point ---
-echo "NodeTrait available as: " . NodeTrait::class . "\n";
+// --- Show Node_Trait integration point ---
+echo "Node_Trait available as: " . Node_Trait::class . "\n";
 echo "Typical model setup:\n";
 echo <<<'PHP'
     class Category extends Model
     {
-        use \Kalnoy\Nestedset\NodeTrait;
+        use \Kalnoy\Nestedset\Node_Trait;
     }
 
     // Append a child:
     $parent->append_node($child);
 
     // Build full tree:
-    Category::get()->toTree();
+    Category::get()->to_tree();
 
     // Get ancestors of a node:
     $node->ancestors()->get();

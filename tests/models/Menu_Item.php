@@ -2,20 +2,22 @@
 
 declare(strict_types=1);
 
-class MenuItem extends \Illuminate\Database\Eloquent\Model
+class Menu_Item extends \Illuminate\Database\Eloquent\Model
 {
-    use \Kalnoy\Nestedset\NodeTrait;
+    use \Kalnoy\Nestedset\Node_Trait;
 
     public $timestamps = false;
 
+    protected $table = 'menu_items';
+
     protected $fillable = ['menu_id','parent_id'];
 
-    public static function resetActionsPerformed()
+    public static function reset_actions_performed()
     {
-        static::$actionsPerformed = 0;
+        static::$actions_performed = 0;
     }
 
-    protected function getScopeAttributes()
+    protected function get_scope_attributes()
     {
         return ['menu_id'];
     }

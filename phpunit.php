@@ -11,4 +11,4 @@ $capsule->bootEloquent();
 $capsule->setAsGlobal();
 
 include __DIR__.'/tests/models/Category.php';
-include __DIR__.'/tests/models/MenuItem.php';
+include __DIR__.'/tests/models/Menu_Item.php';

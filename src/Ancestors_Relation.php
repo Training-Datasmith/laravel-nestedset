@@ -9,7 +9,7 @@ class Ancestors_Relation extends Base_Relation
     /**
      * Set the base constraints on the relation query.
      */
-    public function add_constraints(): void
+    public function addConstraints(): void
     {
         if (!static::$constraints) {
             return;
@@ -25,12 +25,12 @@ class Ancestors_Relation extends Base_Relation
         return $related->is_ancestor_of($model);
     }
     /**
-     * @param QueryBuilder $query
+     * @param Query_Builder $query
      * @param Model $model
      *
      * @return void
      */
-    protected function add_eager_constraint($query, $model)
+    protected function addEagerConstraint($query, $model)
     {
         $query->or_where_ancestor_of($model);
     }
@@ -40,9 +40,9 @@ class Ancestors_Relation extends Base_Relation
      * @param $lft
      * @param $rgt
      */
-    protected function relation_existence_condition($hash, $table, $lft, $rgt): string
+    protected function relationExistenceCondition($hash, $table, $lft, $rgt): string
     {
-        $key = $this->get_base_query()->get_grammar()->wrap($this->parent->get_key_name());
+        $key = $this->getBaseQuery()->getGrammar()->wrap($this->parent->getKeyName());
         return "{$table}.{$rgt} between {$hash}.{$lft} and {$hash}.{$rgt} and {$table}.{$key} <> {$hash}.{$key}";
     }
 }

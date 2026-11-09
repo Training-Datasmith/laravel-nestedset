@@ -6,8 +6,8 @@ namespace Kalnoy\Nestedset;
 use Exception;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Belongs_To;
-use Illuminate\Database\Eloquent\Relations\Has_Many;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
 use LogicException;
 trait Node_Trait
@@ -37,7 +37,7 @@ trait Node_Trait
     /**
      * Sign on model events.
      */
-    public static function boot_node_trait(): void
+    public static function bootNode_Trait(): void
     {
         static::saving(fn($model) => $model->call_pending_action());
         static::deleting(function ($model): void {
@@ -49,7 +49,7 @@ trait Node_Trait
         });
         if (static::uses_soft_delete()) {
             static::restoring(function ($model): void {
-                static::$deleted_at = $model->{$model->get_deleted_at_column()};
+                static::$deleted_at = $model->{$model->getDeletedAtColumn()};
             });
             static::restored(function ($model): void {
                 $model->restore_descendants(static::$deleted_at);
@@ -80,7 +80,8 @@ trait Node_Trait
         if (!$this->pending) {
             return;
         }
-        $method = 'action' . ucfirst(array_shift($this->pending));
+        $token = array_shift($this->pending);
+        $method = 'action_' . $token;
         $parameters = $this->pending;
         $this->pending = null;
         $this->moved = call_user_func_array([$this, $method], $parameters);
@@ -147,7 +148,7 @@ trait Node_Trait
      */
     protected function set_parent($value)
     {
-        $this->set_parent_id($value ? $value->get_key() : null)->set_relation('parent', $value);
+        $this->set_parent_id($value ? $value->getKey() : null)->setRelation('parent', $value);
         return $this;
     }
     /**
@@ -169,7 +170,7 @@ trait Node_Trait
         if (!$this->exists || static::$actions_performed === 0) {
             return;
         }
-        $attributes = $this->new_nested_set_query()->get_node_data($this->get_key());
+        $attributes = $this->new_nested_set_query()->get_node_data($this->getKey());
         $this->attributes = array_merge($this->attributes, $attributes);
         //        $this->original = array_merge($this->original, $attributes);
     }
@@ -180,7 +181,7 @@ trait Node_Trait
      */
     public function parent()
     {
-        return $this->belongs_to($this::class, $this->get_parent_id_name())->set_model($this);
+        return $this->belongsTo($this::class, $this->get_parent_id_name())->setModel($this);
     }
     /**
      * Relation to children.
@@ -189,28 +190,28 @@ trait Node_Trait
      */
     public function children()
     {
-        return $this->has_many($this::class, $this->get_parent_id_name())->set_model($this);
+        return $this->hasMany($this::class, $this->get_parent_id_name())->setModel($this);
     }
     /**
      * Get query for descendants of the node.
      */
     public function descendants(): \Kalnoy\Nestedset\Descendants_Relation
     {
-        return new Descendants_Relation($this->new_query(), $this);
+        return new Descendants_Relation($this->newQuery(), $this);
     }
     /**
      * Get query for siblings of the node.
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function siblings()
     {
-        return $this->new_scoped_query()->where($this->get_key_name(), '<>', $this->get_key())->where($this->get_parent_id_name(), '=', $this->get_parent_id());
+        return $this->new_scoped_query()->where($this->getKeyName(), '<>', $this->getKey())->where($this->get_parent_id_name(), '=', $this->get_parent_id());
     }
     /**
      * Get the node siblings and the node itself.
      *
-     * @return \Kalnoy\Nestedset\QueryBuilder
+     * @return \Kalnoy\Nestedset\Query_Builder
      */
     public function siblings_and_self()
     {
@@ -229,7 +230,7 @@ trait Node_Trait
     /**
      * Get query for siblings after the node.
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function next_siblings()
     {
@@ -238,7 +239,7 @@ trait Node_Trait
     /**
      * Get query for siblings before the node.
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function prev_siblings()
     {
@@ -247,7 +248,7 @@ trait Node_Trait
     /**
      * Get query for nodes after current node.
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function next_nodes()
     {
@@ -256,7 +257,7 @@ trait Node_Trait
     /**
      * Get query for nodes before current node in reversed order.
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function prev_nodes()
     {
@@ -267,7 +268,7 @@ trait Node_Trait
      */
     public function ancestors(): \Kalnoy\Nestedset\Ancestors_Relation
     {
-        return new Ancestors_Relation($this->new_query(), $this);
+        return new Ancestors_Relation($this->newQuery(), $this);
     }
     /**
      * Make this node a root node.
@@ -339,7 +340,7 @@ trait Node_Trait
     {
         $this->assert_node_exists($parent)->assert_not_descendant($parent)->assert_same_scope($parent);
         $this->set_parent($parent)->dirty_bounds();
-        return $this->set_node_action('appendOrPrepend', $parent, $prepend);
+        return $this->set_node_action('append_or_prepend', $parent, $prepend);
     }
     /**
      * Insert self after a node.
@@ -369,10 +370,10 @@ trait Node_Trait
     {
         $this->assert_node_exists($node)->assert_not_descendant($node)->assert_same_scope($node);
         if (!$this->is_sibling_of($node)) {
-            $this->set_parent($node->get_relation_value('parent'));
+            $this->set_parent($node->getRelationValue('parent'));
         }
         $this->dirty_bounds();
-        return $this->set_node_action('beforeOrAfter', $node, $after);
+        return $this->set_node_action('before_or_after', $node, $after);
     }
     /**
      * Insert self after a node and save.
@@ -463,7 +464,7 @@ trait Node_Trait
      */
     protected function move_node($position)
     {
-        $updated = $this->new_nested_set_query()->move_node($this->get_key(), $position) > 0;
+        $updated = $this->new_nested_set_query()->move_node($this->getKey(), $position) > 0;
         if ($updated) {
             $this->refresh_node();
         }
@@ -491,7 +492,7 @@ trait Node_Trait
     {
         $lft = $this->get_lft();
         $rgt = $this->get_rgt();
-        $method = $this->uses_soft_delete() && $this->force_deleting ? 'forceDelete' : 'delete';
+        $method = $this->uses_soft_delete() && $this->forceDeleting ? 'forceDelete' : 'delete';
         $this->descendants()->{$method}();
         if ($this->hard_deleting()) {
             $height = $rgt - $lft + 1;
@@ -508,14 +509,14 @@ trait Node_Trait
      */
     protected function restore_descendants($deleted_at)
     {
-        $this->descendants()->where($this->get_deleted_at_column(), '>=', $deleted_at)->restore();
+        $this->descendants()->where($this->getDeletedAtColumn(), '>=', $deleted_at)->restore();
     }
     /**
      * {@inheritdoc}
      *
      * @since 2.0
      */
-    public function new_eloquent_builder($query): \Kalnoy\Nestedset\Query_Builder
+    public function newEloquentBuilder($query): \Kalnoy\Nestedset\Query_Builder
     {
         return new Query_Builder($query);
     }
@@ -524,21 +525,21 @@ trait Node_Trait
      *
      * @since 1.1
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function new_nested_set_query($table = null)
     {
-        $builder = $this->uses_soft_delete() ? $this->with_trashed() : $this->new_query();
+        $builder = $this->uses_soft_delete() ? $this->withTrashed() : $this->newQuery();
         return $this->apply_nested_set_scope($builder, $table);
     }
     /**
      * @param string|null $table
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function new_scoped_query($table = null)
     {
-        return $this->apply_nested_set_scope($this->new_query(), $table);
+        return $this->apply_nested_set_scope($this->newQuery(), $table);
     }
     /**
      * @param mixed $query
@@ -552,10 +553,10 @@ trait Node_Trait
             return $query;
         }
         if (!$table) {
-            $table = $this->get_table();
+            $table = $this->getTable();
         }
         foreach ($scoped as $attribute) {
-            $query->where($table . '.' . $attribute, '=', $this->get_attribute_value($attribute));
+            $query->where($table . '.' . $attribute, '=', $this->getAttributeValue($attribute));
         }
         return $query;
     }
@@ -567,18 +568,18 @@ trait Node_Trait
         return null;
     }
     /**
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public static function scoped(array $attributes)
     {
         $instance = new static();
-        $instance->set_raw_attributes($attributes);
+        $instance->setRawAttributes($attributes);
         return $instance->new_scoped_query();
     }
     /**
      * {@inheritdoc}
      */
-    public function new_collection(array $models = []): \Kalnoy\Nestedset\Collection
+    public function newCollection(array $models = []): \Kalnoy\Nestedset\Collection
     {
         return new Collection($models);
     }
@@ -598,13 +599,13 @@ trait Node_Trait
         }
         $instance->save();
         // Now create children
-        $relation = new Eloquent_Collection();
+        $relation = new EloquentCollection();
         foreach ((array) $children as $child) {
             $relation->add($child = static::create($child, $instance));
-            $child->set_relation('parent', $instance);
+            $child->setRelation('parent', $instance);
         }
         $instance->refresh_node();
-        return $instance->set_relation('children', $relation);
+        return $instance->setRelation('children', $relation);
     }
     /**
      * Get node height (rgt - lft + 1).
@@ -634,13 +635,13 @@ trait Node_Trait
      *
      * @throws Exception If parent node doesn't exists
      */
-    public function set_parent_id_attribute($value): void
+    public function setParentIdAttribute($value): void
     {
         if ($this->get_parent_id() == $value) {
             return;
         }
         if ($value) {
-            $this->append_to_node($this->new_scoped_query()->find_or_fail($value));
+            $this->append_to_node($this->new_scoped_query()->findOrFail($value));
         } else {
             $this->make_root();
         }
@@ -684,7 +685,7 @@ trait Node_Trait
      */
     public function get_lft()
     {
-        return $this->get_attribute_value($this->get_lft_name());
+        return $this->getAttributeValue($this->get_lft_name());
     }
     /**
      * Get the value of the model's rgt key.
@@ -693,7 +694,7 @@ trait Node_Trait
      */
     public function get_rgt()
     {
-        return $this->get_attribute_value($this->get_rgt_name());
+        return $this->getAttributeValue($this->get_rgt_name());
     }
     /**
      * Get the value of the model's parent id key.
@@ -702,7 +703,7 @@ trait Node_Trait
      */
     public function get_parent_id()
     {
-        return $this->get_attribute_value($this->get_parent_id_name());
+        return $this->getAttributeValue($this->get_parent_id_name());
     }
     /**
      * Returns node that is next to current node without constraining to siblings.
@@ -802,7 +803,7 @@ trait Node_Trait
      */
     public function is_child_of(self $other): bool
     {
-        return $this->get_parent_id() == $other->get_key();
+        return $this->get_parent_id() == $other->getKey();
     }
     /**
      * Get whether the node is a sibling of another node.
@@ -845,7 +846,7 @@ trait Node_Trait
     /**
      * @return array
      */
-    protected function get_arrayable_relations()
+    protected function getArrayableRelations()
     {
         $result = parent::get_arrayable_relations();
         // To fix #17 when converting tree to json falling to infinite recursion.
@@ -860,7 +861,7 @@ trait Node_Trait
         if (!$this->uses_soft_delete()) {
             return true;
         }
-        return (bool) $this->force_deleting;
+        return (bool) $this->forceDeleting;
     }
     public function get_bounds(): array
     {
@@ -931,7 +932,7 @@ trait Node_Trait
             return;
         }
         foreach ($scoped as $attr) {
-            if ($this->get_attribute($attr) != $node->get_attribute($attr)) {
+            if ($this->getAttribute($attr) != $node->getAttribute($attr)) {
                 throw new LogicException('Nodes must be in the same scope');
             }
         }
@@ -942,7 +943,7 @@ trait Node_Trait
             return true;
         }
         foreach ($scoped as $attr) {
-            if ($this->get_attribute($attr) != $node->get_attribute($attr)) {
+            if ($this->getAttribute($attr) != $node->getAttribute($attr)) {
                 return false;
             }
         }

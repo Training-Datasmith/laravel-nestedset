@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Capsule\Manager as Capsule;
-use Kalnoy\Nestedset\NestedSet;
+use Kalnoy\Nestedset\Nested_Set;
 
-class ScopedNodeTest extends PHPUnit\Framework\TestCase
+class ScopedNode_Test extends PHPUnit\Framework\TestCase
 {
     public static function setUpBeforeClass(): void
     {
@@ -19,7 +19,7 @@ class ScopedNodeTest extends PHPUnit\Framework\TestCase
             $table->increments('id');
             $table->unsignedInteger('menu_id');
             $table->string('title')->nullable();
-            NestedSet::columns($table);
+            Nested_Set::columns($table);
         });
 
         Capsule::enableQueryLog();
@@ -33,7 +33,7 @@ class ScopedNodeTest extends PHPUnit\Framework\TestCase
 
         Capsule::flushQueryLog();
 
-        MenuItem::resetActionsPerformed();
+        Menu_Item::reset_actions_performed();
 
         date_default_timezone_set('America/Denver');
     }
@@ -43,65 +43,65 @@ class ScopedNodeTest extends PHPUnit\Framework\TestCase
         Capsule::table('menu_items')->truncate();
     }
 
-    public function assertTreeNotBroken($menuId)
+    public function assert_tree_not_broken($menuId)
     {
-        $this->assertFalse(MenuItem::scoped([ 'menu_id' => $menuId ])->isBroken());
+        $this->assertFalse(Menu_Item::scoped([ 'menu_id' => $menuId ])->is_broken());
     }
 
-    public function testNotBroken()
+    public function test_not_broken()
     {
-        $this->assertTreeNotBroken(1);
-        $this->assertTreeNotBroken(2);
+        $this->assert_tree_not_broken(1);
+        $this->assert_tree_not_broken(2);
     }
 
-    public function testMovingNodeNotAffectingOtherMenu()
+    public function test_moving_node_not_affecting_other_menu()
     {
-        $node = MenuItem::where('menu_id', '=', 1)->first();
+        $node = Menu_Item::where('menu_id', '=', 1)->first();
 
         $node->down();
 
-        $node = MenuItem::where('menu_id', '=', 2)->first();
+        $node = Menu_Item::where('menu_id', '=', 2)->first();
 
-        $this->assertEquals(1, $node->getLft());
+        $this->assertEquals(1, $node->get_lft());
     }
 
-    public function testScoped()
+    public function test_scoped()
     {
-        $node = MenuItem::scoped([ 'menu_id' => 2 ])->first();
+        $node = Menu_Item::scoped([ 'menu_id' => 2 ])->first();
 
         $this->assertEquals(3, $node->getKey());
     }
 
-    public function testSiblings()
+    public function test_siblings()
     {
-        $node = MenuItem::find(1);
+        $node = Menu_Item::find(1);
 
-        $result = $node->getSiblings();
+        $result = $node->get_siblings();
 
         $this->assertEquals(1, $result->count());
         $this->assertEquals(2, $result->first()->getKey());
 
-        $result = $node->getNextSiblings();
+        $result = $node->get_next_siblings();
 
         $this->assertEquals(2, $result->first()->getKey());
 
-        $node = MenuItem::find(2);
+        $node = Menu_Item::find(2);
 
-        $result = $node->getPrevSiblings();
+        $result = $node->get_prev_siblings();
 
         $this->assertEquals(1, $result->first()->getKey());
     }
 
-    public function testDescendants()
+    public function test_descendants()
     {
-        $node = MenuItem::find(2);
+        $node = Menu_Item::find(2);
 
-        $result = $node->getDescendants();
+        $result = $node->get_descendants();
 
         $this->assertEquals(1, $result->count());
         $this->assertEquals(5, $result->first()->getKey());
 
-        $node = MenuItem::scoped([ 'menu_id' => 1 ])->with('descendants')->find(2);
+        $node = Menu_Item::scoped([ 'menu_id' => 1 ])->with('descendants')->find(2);
 
         $result = $node->descendants;
 
@@ -109,16 +109,16 @@ class ScopedNodeTest extends PHPUnit\Framework\TestCase
         $this->assertEquals(5, $result->first()->getKey());
     }
 
-    public function testAncestors()
+    public function test_ancestors()
     {
-        $node = MenuItem::find(5);
+        $node = Menu_Item::find(5);
 
-        $result = $node->getAncestors();
+        $result = $node->get_ancestors();
 
         $this->assertEquals(1, $result->count());
         $this->assertEquals(2, $result->first()->getKey());
 
-        $node = MenuItem::scoped([ 'menu_id' => 1 ])->with('ancestors')->find(5);
+        $node = Menu_Item::scoped([ 'menu_id' => 1 ])->with('ancestors')->find(5);
 
         $result = $node->ancestors;
 
@@ -126,113 +126,113 @@ class ScopedNodeTest extends PHPUnit\Framework\TestCase
         $this->assertEquals(2, $result->first()->getKey());
     }
 
-    public function testDepth()
+    public function test_depth()
     {
-        $node = MenuItem::scoped([ 'menu_id' => 1 ])->withDepth()->where('id', '=', 5)->first();
+        $node = Menu_Item::scoped([ 'menu_id' => 1 ])->with_depth()->where('id', '=', 5)->first();
 
         $this->assertEquals(1, $node->depth);
 
-        $node = MenuItem::find(2);
+        $node = Menu_Item::find(2);
 
-        $result = $node->children()->withDepth()->get();
+        $result = $node->children()->with_depth()->get();
 
         $this->assertEquals(1, $result->first()->depth);
     }
 
-    public function testSaveAsRoot()
+    public function test_save_as_root()
     {
-        $node = MenuItem::find(5);
+        $node = Menu_Item::find(5);
 
-        $node->saveAsRoot();
+        $node->save_as_root();
 
-        $this->assertEquals(5, $node->getLft());
+        $this->assertEquals(5, $node->get_lft());
         $this->assertEquals(null, $node->parent_id);
 
-        $this->assertOtherScopeNotAffected();
+        $this->assert_other_scope_not_affected();
     }
 
-    public function testInsertion()
+    public function test_insertion()
     {
-        $node = MenuItem::create([ 'menu_id' => 1, 'parent_id' => 5 ]);
+        $node = Menu_Item::create([ 'menu_id' => 1, 'parent_id' => 5 ]);
 
         $this->assertEquals(5, $node->parent_id);
-        $this->assertEquals(5, $node->getLft());
+        $this->assertEquals(5, $node->get_lft());
 
-        $this->assertOtherScopeNotAffected();
+        $this->assert_other_scope_not_affected();
     }
 
-    public function testInsertionToParentFromOtherScope()
+    public function test_insertion_to_parent_from_other_scope()
     {
         $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
 
-        $node = MenuItem::create([ 'menu_id' => 2, 'parent_id' => 5 ]);
+        $node = Menu_Item::create([ 'menu_id' => 2, 'parent_id' => 5 ]);
     }
 
-    public function testDeletion()
+    public function test_deletion()
     {
-        $node = MenuItem::find(2)->delete();
+        $node = Menu_Item::find(2)->delete();
 
-        $node = MenuItem::find(1);
+        $node = Menu_Item::find(1);
 
-        $this->assertEquals(2, $node->getRgt());
+        $this->assertEquals(2, $node->get_rgt());
 
-        $this->assertOtherScopeNotAffected();
+        $this->assert_other_scope_not_affected();
     }
 
-    public function testMoving()
+    public function test_moving()
     {
-        $node = MenuItem::find(1);
+        $node = Menu_Item::find(1);
         $this->assertTrue($node->down());
 
-        $this->assertOtherScopeNotAffected();
+        $this->assert_other_scope_not_affected();
     }
 
-    protected function assertOtherScopeNotAffected()
+    protected function assert_other_scope_not_affected()
     {
-        $node = MenuItem::find(3);
+        $node = Menu_Item::find(3);
 
-        $this->assertEquals(1, $node->getLft());
+        $this->assertEquals(1, $node->get_lft());
     }
 
     // Commented, cause there is no assertion here and otherwise the test is marked as risky in PHPUnit 7.
     // What's the purpose of this method? @todo: remove/update?
-    /*public function testRebuildsTree()
+    /*public function test_rebuilds_tree()
     {
         $data = [];
-        MenuItem::scoped([ 'menu_id' => 2 ])->rebuildTree($data);
+        Menu_Item::scoped([ 'menu_id' => 2 ])->rebuild_tree($data);
     }*/
 
-    public function testAppendingToAnotherScopeFails()
+    public function test_appending_to_another_scope_fails()
     {
         $this->expectException(LogicException::class);
 
-        $a = MenuItem::find(1);
-        $b = MenuItem::find(3);
+        $a = Menu_Item::find(1);
+        $b = Menu_Item::find(3);
 
-        $a->appendToNode($b)->save();
+        $a->append_to_node($b)->save();
     }
 
-    public function testInsertingBeforeAnotherScopeFails()
+    public function test_inserting_before_another_scope_fails()
     {
         $this->expectException(LogicException::class);
 
-        $a = MenuItem::find(1);
-        $b = MenuItem::find(3);
+        $a = Menu_Item::find(1);
+        $b = Menu_Item::find(3);
 
-        $a->insertAfterNode($b);
+        $a->insert_after_node($b);
     }
 
-    public function testEagerLoadingAncestorsWithScope()
+    public function test_eager_loading_ancestors_with_scope()
     {
-        $filteredNodes = MenuItem::where('title', 'menu item 3')->with(['ancestors'])->get();
+        $filteredNodes = Menu_Item::where('title', 'menu item 3')->with(['ancestors'])->get();
 
         $this->assertEquals(2, $filteredNodes->find(5)->ancestors[0]->id);
         $this->assertEquals(4, $filteredNodes->find(6)->ancestors[0]->id);
     }
 
-    public function testEagerLoadingDescendantsWithScope()
+    public function test_eager_loading_descendants_with_scope()
     {
-        $filteredNodes = MenuItem::where('title', 'menu item 2')->with(['descendants'])->get();
+        $filteredNodes = Menu_Item::where('title', 'menu item 2')->with(['descendants'])->get();
 
         $this->assertEquals(5, $filteredNodes->find(2)->descendants[0]->id);
         $this->assertEquals(6, $filteredNodes->find(4)->descendants[0]->id);

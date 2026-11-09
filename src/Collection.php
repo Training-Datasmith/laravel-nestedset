@@ -5,7 +5,7 @@ namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Eloquent\Collection as BaseCollection;
 use Illuminate\Database\Eloquent\Model;
-class Collection extends Base_Collection
+class Collection extends BaseCollection
 {
     /**
      * Fill `parent` and `children` relationships for every node in the collection.
@@ -16,21 +16,21 @@ class Collection extends Base_Collection
      */
     public function link_nodes(): static
     {
-        if ($this->is_empty()) {
+        if ($this->isEmpty()) {
             return $this;
         }
-        $grouped_nodes = $this->group_by($this->first()->get_parent_id_name());
-        /** @var NodeTrait|Model $node */
+        $grouped_nodes = $this->groupBy($this->first()->get_parent_id_name());
+        /** @var Node_Trait|Model $node */
         foreach ($this->items as $node) {
             if (!$node->get_parent_id()) {
-                $node->set_relation('parent', null);
+                $node->setRelation('parent', null);
             }
-            $children = $grouped_nodes->get($node->get_key(), []);
-            /** @var Model|NodeTrait $child */
+            $children = $grouped_nodes->get($node->getKey(), []);
+            /** @var Model|Node_Trait $child */
             foreach ($children as $child) {
-                $child->set_relation('parent', $node);
+                $child->setRelation('parent', $node);
             }
-            $node->set_relation('children', Base_Collection::make($children));
+            $node->setRelation('children', BaseCollection::make($children));
         }
         return $this;
     }
@@ -46,13 +46,13 @@ class Collection extends Base_Collection
      */
     public function to_tree($root = false): static
     {
-        if ($this->is_empty()) {
+        if ($this->isEmpty()) {
             return new static();
         }
         $this->link_nodes();
         $items = [];
         $root = $this->get_root_node_id($root);
-        /** @var Model|NodeTrait $node */
+        /** @var Model|Node_Trait $node */
         foreach ($this->items as $node) {
             if ($node->get_parent_id() == $root) {
                 $items[] = $node;
@@ -68,7 +68,7 @@ class Collection extends Base_Collection
     protected function get_root_node_id($root = false)
     {
         if (Nested_Set::is_node($root)) {
-            return $root->get_key();
+            return $root->getKey();
         }
         if ($root !== false) {
             return $root;
@@ -76,7 +76,7 @@ class Collection extends Base_Collection
         // If root node is not specified we take parent id of node with
         // least lft value as root node id.
         $least_value = null;
-        /** @var Model|NodeTrait $node */
+        /** @var Model|Node_Trait $node */
         foreach ($this->items as $node) {
             if ($least_value === null || $node->get_lft() < $least_value) {
                 $least_value = $node->get_lft();
@@ -96,10 +96,10 @@ class Collection extends Base_Collection
     public function to_flat_tree($root = false)
     {
         $result = new static();
-        if ($this->is_empty()) {
+        if ($this->isEmpty()) {
             return $result;
         }
-        $grouped_nodes = $this->group_by($this->first()->get_parent_id_name());
+        $grouped_nodes = $this->groupBy($this->first()->get_parent_id_name());
         return $result->flatten_tree($grouped_nodes, $this->get_root_node_id($root));
     }
     /**
@@ -112,7 +112,7 @@ class Collection extends Base_Collection
     {
         foreach ($grouped_nodes->get($parent_id, []) as $node) {
             $this->push($node);
-            $this->flatten_tree($grouped_nodes, $node->get_key());
+            $this->flatten_tree($grouped_nodes, $node->getKey());
         }
         return $this;
     }

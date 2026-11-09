@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" backupGlobals="false" bootstrap="phpunit.php" colors="true" processIsolation="false" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd" cacheDirectory=".phpunit.cache" backupStaticProperties="false">
+<phpunit backupGlobals="false"
+         backupStaticAttributes="false"
+         bootstrap="phpunit.php"
+         colors="true"
+         processIsolation="false">
   <testsuites>
     <testsuite name="Package Test Suite">
       <directory suffix=".php">./tests/</directory>
@@ -7,9 +11,9 @@
       <exclude>./tests/models</exclude>
     </testsuite>
   </testsuites>
-  <source>
+  <coverage>
     <include>
       <directory>./src</directory>
     </include>
-  </source>
+  </coverage>
 </phpunit>

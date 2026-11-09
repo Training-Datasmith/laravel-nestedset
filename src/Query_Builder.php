@@ -5,7 +5,7 @@ namespace Kalnoy\Nestedset;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Model_Not_Found_Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Query\Builder as BaseQueryBuilder;
 use Illuminate\Database\Query\Builder as Query;
 use Illuminate\Database\Query\Expression;
@@ -14,7 +14,7 @@ use LogicException;
 class Query_Builder extends Builder
 {
     /**
-     * @var NodeTrait|Model
+     * @var Node_Trait|Model
      */
     protected $model;
     /**
@@ -29,11 +29,11 @@ class Query_Builder extends Builder
      */
     public function get_node_data($id, $required = false)
     {
-        $query = $this->to_base();
-        $query->where($this->model->get_key_name(), '=', $id);
+        $query = $this->toBase();
+        $query->where($this->model->getKeyName(), '=', $id);
         $data = $query->first([$this->model->get_lft_name(), $this->model->get_rgt_name()]);
         if (!$data && $required) {
-            throw new Model_Not_Found_Exception();
+            throw new ModelNotFoundException();
         }
         return (array) $data;
     }
@@ -58,7 +58,7 @@ class Query_Builder extends Builder
      */
     public function where_is_root()
     {
-        $this->query->where_null($this->model->get_parent_id_name());
+        $this->query->whereNull($this->model->get_parent_id_name());
         return $this;
     }
     /**
@@ -75,22 +75,22 @@ class Query_Builder extends Builder
      */
     public function where_ancestor_of($id, $and_self = false, $boolean = 'and')
     {
-        $key_name = $this->model->get_table() . '.' . $this->model->get_key_name();
+        $key_name = $this->model->getTable() . '.' . $this->model->getKeyName();
         $model = null;
         if (Nested_Set::is_node($id)) {
             $model = $id;
             $value = '?';
-            $this->query->add_binding($id->get_rgt());
-            $id = $id->get_key();
+            $this->query->addBinding($id->get_rgt());
+            $id = $id->getKey();
         } else {
-            $value_query = $this->model->new_query()->to_base()->select('_.' . $this->model->get_rgt_name())->from($this->model->get_table() . ' as _')->where($this->model->get_key_name(), '=', $id)->limit(1);
-            $this->query->merge_bindings($value_query);
-            $value = '(' . $value_query->to_sql() . ')';
+            $value_query = $this->model->newQuery()->toBase()->select('_.' . $this->model->get_rgt_name())->from($this->model->getTable() . ' as _')->where($this->model->getKeyName(), '=', $id)->limit(1);
+            $this->query->mergeBindings($value_query);
+            $value = '(' . $value_query->toSql() . ')';
         }
-        $this->query->where_nested(function ($inner) use ($model, $value, $and_self, $id, $key_name): void {
+        $this->query->whereNested(function ($inner) use ($model, $value, $and_self, $id, $key_name): void {
             [$lft, $rgt] = $this->wrapped_columns();
-            $wrapped_table = $this->query->get_grammar()->wrap_table($this->model->get_table());
-            $inner->where_raw("{$value} between {$wrapped_table}.{$lft} and {$wrapped_table}.{$rgt}");
+            $wrapped_table = $this->query->getGrammar()->wrapTable($this->model->getTable());
+            $inner->whereRaw("{$value} between {$wrapped_table}.{$lft} and {$wrapped_table}.{$rgt}");
             if (!$and_self) {
                 $inner->where($key_name, '<>', $id);
             }
@@ -115,7 +115,7 @@ class Query_Builder extends Builder
     /**
      * @param $id
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function where_ancestor_or_self($id)
     {
@@ -157,7 +157,7 @@ class Query_Builder extends Builder
      */
     public function where_node_between($values, $boolean = 'and', $not = false, $query = null)
     {
-        ($query ?? $this->query)->where_between($this->model->get_table() . '.' . $this->model->get_lft_name(), $values, $boolean, $not);
+        ($query ?? $this->query)->whereBetween($this->model->getTable() . '.' . $this->model->get_lft_name(), $values, $boolean, $not);
         return $this;
     }
     /**
@@ -187,7 +187,7 @@ class Query_Builder extends Builder
      */
     public function where_descendant_of($id, $boolean = 'and', $not = false, $and_self = false)
     {
-        $this->query->where_nested(function (Query $inner) use ($id, $and_self, $not) {
+        $this->query->whereNested(function (Query $inner) use ($id, $and_self, $not) {
             if (Nested_Set::is_node($id)) {
                 $id->apply_nested_set_scope($inner);
                 $data = $id->get_bounds();
@@ -207,7 +207,7 @@ class Query_Builder extends Builder
     /**
      * @param mixed $id
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function where_not_descendant_of($id)
     {
@@ -216,7 +216,7 @@ class Query_Builder extends Builder
     /**
      * @param mixed $id
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function or_where_descendant_of($id)
     {
@@ -225,7 +225,7 @@ class Query_Builder extends Builder
     /**
      * @param mixed $id
      *
-     * @return QueryBuilder
+     * @return Query_Builder
      */
     public function or_where_not_descendant_of($id)
     {
@@ -255,8 +255,8 @@ class Query_Builder extends Builder
     {
         try {
             return $this->where_descendant_of($id, 'and', false, $and_self)->get($columns);
-        } catch (Model_Not_Found_Exception) {
-            return $this->model->new_collection();
+        } catch (ModelNotFoundException) {
+            return $this->model->newCollection();
         }
     }
     /**
@@ -279,14 +279,14 @@ class Query_Builder extends Builder
     {
         if (Nested_Set::is_node($id)) {
             $value = '?';
-            $this->query->add_binding($id->get_lft());
+            $this->query->addBinding($id->get_lft());
         } else {
-            $value_query = $this->model->new_query()->to_base()->select('_n.' . $this->model->get_lft_name())->from($this->model->get_table() . ' as _n')->where('_n.' . $this->model->get_key_name(), '=', $id);
-            $this->query->merge_bindings($value_query);
-            $value = '(' . $value_query->to_sql() . ')';
+            $value_query = $this->model->newQuery()->toBase()->select('_n.' . $this->model->get_lft_name())->from($this->model->getTable() . ' as _n')->where('_n.' . $this->model->getKeyName(), '=', $id);
+            $this->query->mergeBindings($value_query);
+            $value = '(' . $value_query->toSql() . ')';
         }
         list($lft, ) = $this->wrapped_columns();
-        $this->query->where_raw("{$lft} {$operator} {$value}", [], $boolean);
+        $this->query->whereRaw("{$lft} {$operator} {$value}", [], $boolean);
         return $this;
     }
     /**
@@ -323,7 +323,7 @@ class Query_Builder extends Builder
     public function where_is_leaf()
     {
         [$lft, $rgt] = $this->wrapped_columns();
-        return $this->where_raw("{$lft} = {$rgt} - 1");
+        return $this->whereRaw("{$lft} = {$rgt} - 1");
     }
     /**
      * @return Collection
@@ -347,9 +347,9 @@ class Query_Builder extends Builder
         $table = $this->wrapped_table();
         [$lft, $rgt] = $this->wrapped_columns();
         $alias = '_d';
-        $wrapped_alias = $this->query->get_grammar()->wrap_table($alias);
-        $query = $this->model->new_scoped_query('_d')->to_base()->select_raw('count(1) - 1')->from($this->model->get_table() . ' as ' . $alias)->where_raw("{$table}.{$lft} between {$wrapped_alias}.{$lft} and {$wrapped_alias}.{$rgt}");
-        $this->query->select_sub($query, $as);
+        $wrapped_alias = $this->query->getGrammar()->wrapTable($alias);
+        $query = $this->model->new_scoped_query('_d')->toBase()->selectRaw('count(1) - 1')->from($this->model->getTable() . ' as ' . $alias)->whereRaw("{$table}.{$lft} between {$wrapped_alias}.{$lft} and {$wrapped_alias}.{$rgt}");
+        $this->query->selectSub($query, $as);
         return $this;
     }
     /**
@@ -361,7 +361,7 @@ class Query_Builder extends Builder
      */
     protected function wrapped_columns()
     {
-        $grammar = $this->query->get_grammar();
+        $grammar = $this->query->getGrammar();
         return [$grammar->wrap($this->model->get_lft_name()), $grammar->wrap($this->model->get_rgt_name())];
     }
     /**
@@ -373,7 +373,7 @@ class Query_Builder extends Builder
      */
     protected function wrapped_table()
     {
-        return $this->query->get_grammar()->wrap_table($this->get_query()->from);
+        return $this->query->getGrammar()->wrapTable($this->getQuery()->from);
     }
     /**
      * Wrap model's key name.
@@ -384,7 +384,7 @@ class Query_Builder extends Builder
      */
     protected function wrapped_key()
     {
-        return $this->query->get_grammar()->wrap($this->model->get_key_name());
+        return $this->query->getGrammar()->wrap($this->model->getKeyName());
     }
     /**
      * Exclude root node from the result.
@@ -393,7 +393,7 @@ class Query_Builder extends Builder
      */
     public function without_root()
     {
-        $this->query->where_not_null($this->model->get_parent_id_name());
+        $this->query->whereNotNull($this->model->get_parent_id_name());
         return $this;
     }
     /**
@@ -406,7 +406,7 @@ class Query_Builder extends Builder
      */
     public function has_parent()
     {
-        $this->query->where_not_null($this->model->get_parent_id_name());
+        $this->query->whereNotNull($this->model->get_parent_id_name());
         return $this;
     }
     /**
@@ -420,7 +420,7 @@ class Query_Builder extends Builder
     public function has_children()
     {
         [$lft, $rgt] = $this->wrapped_columns();
-        $this->query->where_raw("{$rgt} > {$lft} + 1");
+        $this->query->whereRaw("{$rgt} > {$lft} + 1");
         return $this;
     }
     /**
@@ -433,7 +433,7 @@ class Query_Builder extends Builder
     public function default_order($dir = 'asc')
     {
         $this->query->orders = null;
-        $this->query->order_by($this->model->get_lft_name(), $dir);
+        $this->query->orderBy($this->model->get_lft_name(), $dir);
         return $this;
     }
     /**
@@ -477,9 +477,9 @@ class Query_Builder extends Builder
         }
         $params = compact('lft', 'rgt', 'from', 'to', 'height', 'distance');
         $boundary = [$from, $to];
-        $query = $this->to_base()->where(function (Query $inner) use ($boundary): void {
-            $inner->where_between($this->model->get_lft_name(), $boundary);
-            $inner->or_where_between($this->model->get_rgt_name(), $boundary);
+        $query = $this->toBase()->where(function (Query $inner) use ($boundary): void {
+            $inner->whereBetween($this->model->get_lft_name(), $boundary);
+            $inner->orWhereBetween($this->model->get_rgt_name(), $boundary);
         });
         return $query->update($this->patch($params));
     }
@@ -496,9 +496,9 @@ class Query_Builder extends Builder
     public function make_gap($cut, $height)
     {
         $params = compact('cut', 'height');
-        $query = $this->to_base()->where_nested(function (Query $inner) use ($cut): void {
+        $query = $this->toBase()->whereNested(function (Query $inner) use ($cut): void {
             $inner->where($this->model->get_lft_name(), '>=', $cut);
-            $inner->or_where($this->model->get_rgt_name(), '>=', $cut);
+            $inner->orWhere($this->model->get_rgt_name(), '>=', $cut);
         });
         return $query->update($this->patch($params));
     }
@@ -512,7 +512,7 @@ class Query_Builder extends Builder
      */
     protected function patch(array $params)
     {
-        $grammar = $this->query->get_grammar();
+        $grammar = $this->query->getGrammar();
         $columns = [];
         foreach ([$this->model->get_lft_name(), $this->model->get_rgt_name()] as $col) {
             $columns[$col] = $this->column_patch($grammar->wrap($col), $params);
@@ -566,10 +566,10 @@ class Query_Builder extends Builder
         $checks['wrong_parent'] = $this->get_wrong_parent_query();
         // Check for nodes that have missing parent
         $checks['missing_parent'] = $this->get_missing_parent_query();
-        $query = $this->query->new_query();
+        $query = $this->query->newQuery();
         foreach ($checks as $key => $inner) {
-            $inner->select_raw('count(1)');
-            $query->select_sub($inner, $key);
+            $inner->selectRaw('count(1)');
+            $query->selectSub($inner, $key);
         }
         return (array) $query->first();
     }
@@ -578,9 +578,9 @@ class Query_Builder extends Builder
      */
     protected function get_odness_query()
     {
-        return $this->model->new_nested_set_query()->to_base()->where_nested(function (Base_Query_Builder $inner): void {
+        return $this->model->new_nested_set_query()->toBase()->whereNested(function (Query $inner): void {
             [$lft, $rgt] = $this->wrapped_columns();
-            $inner->where_raw("{$lft} >= {$rgt}")->or_where_raw("({$rgt} - {$lft}) % 2 = 0");
+            $inner->whereRaw("{$lft} >= {$rgt}")->orWhereRaw("({$rgt} - {$lft}) % 2 = 0");
         });
     }
     /**
@@ -592,11 +592,11 @@ class Query_Builder extends Builder
         $key_name = $this->wrapped_key();
         $first_alias = 'c1';
         $second_alias = 'c2';
-        $wa_first = $this->query->get_grammar()->wrap_table($first_alias);
-        $wa_second = $this->query->get_grammar()->wrap_table($second_alias);
-        $query = $this->model->new_nested_set_query($first_alias)->to_base()->from($this->query->raw("{$table} as {$wa_first}, {$table} {$wa_second}"))->where_raw("{$wa_first}.{$key_name} < {$wa_second}.{$key_name}")->where_nested(function (Base_Query_Builder $inner) use ($wa_first, $wa_second): void {
+        $wa_first = $this->query->getGrammar()->wrapTable($first_alias);
+        $wa_second = $this->query->getGrammar()->wrapTable($second_alias);
+        $query = $this->model->new_nested_set_query($first_alias)->toBase()->from($this->query->raw("{$table} as {$wa_first}, {$table} {$wa_second}"))->whereRaw("{$wa_first}.{$key_name} < {$wa_second}.{$key_name}")->whereNested(function (Query $inner) use ($wa_first, $wa_second): void {
             [$lft, $rgt] = $this->wrapped_columns();
-            $inner->or_where_raw("{$wa_first}.{$lft}={$wa_second}.{$lft}")->or_where_raw("{$wa_first}.{$rgt}={$wa_second}.{$rgt}")->or_where_raw("{$wa_first}.{$lft}={$wa_second}.{$rgt}")->or_where_raw("{$wa_first}.{$rgt}={$wa_second}.{$lft}");
+            $inner->orWhereRaw("{$wa_first}.{$lft}={$wa_second}.{$lft}")->orWhereRaw("{$wa_first}.{$rgt}={$wa_second}.{$rgt}")->orWhereRaw("{$wa_first}.{$lft}={$wa_second}.{$rgt}")->orWhereRaw("{$wa_first}.{$rgt}={$wa_second}.{$lft}");
         });
         return $this->model->apply_nested_set_scope($query, $second_alias);
     }
@@ -607,17 +607,17 @@ class Query_Builder extends Builder
     {
         $table = $this->wrapped_table();
         $key_name = $this->wrapped_key();
-        $grammar = $this->query->get_grammar();
+        $grammar = $this->query->getGrammar();
         $parent_id_name = $grammar->wrap($this->model->get_parent_id_name());
         $parent_alias = 'p';
         $child_alias = 'c';
         $interm_alias = 'i';
-        $wa_parent = $grammar->wrap_table($parent_alias);
-        $wa_child = $grammar->wrap_table($child_alias);
-        $wa_interm = $grammar->wrap_table($interm_alias);
-        $query = $this->model->new_nested_set_query('c')->to_base()->from($this->query->raw("{$table} as {$wa_child}, {$table} as {$wa_parent}, {$table} as {$wa_interm}"))->where_raw("{$wa_child}.{$parent_id_name}={$wa_parent}.{$key_name}")->where_raw("{$wa_interm}.{$key_name} <> {$wa_parent}.{$key_name}")->where_raw("{$wa_interm}.{$key_name} <> {$wa_child}.{$key_name}")->where_nested(function (Base_Query_Builder $inner) use ($wa_interm, $wa_child, $wa_parent): void {
+        $wa_parent = $grammar->wrapTable($parent_alias);
+        $wa_child = $grammar->wrapTable($child_alias);
+        $wa_interm = $grammar->wrapTable($interm_alias);
+        $query = $this->model->new_nested_set_query('c')->toBase()->from($this->query->raw("{$table} as {$wa_child}, {$table} as {$wa_parent}, {$table} as {$wa_interm}"))->whereRaw("{$wa_child}.{$parent_id_name}={$wa_parent}.{$key_name}")->whereRaw("{$wa_interm}.{$key_name} <> {$wa_parent}.{$key_name}")->whereRaw("{$wa_interm}.{$key_name} <> {$wa_child}.{$key_name}")->whereNested(function (Query $inner) use ($wa_interm, $wa_child, $wa_parent): void {
             [$lft, $rgt] = $this->wrapped_columns();
-            $inner->where_raw("{$wa_child}.{$lft} not between {$wa_parent}.{$lft} and {$wa_parent}.{$rgt}")->or_where_raw("{$wa_child}.{$lft} between {$wa_interm}.{$lft} and {$wa_interm}.{$rgt}")->where_raw("{$wa_interm}.{$lft} between {$wa_parent}.{$lft} and {$wa_parent}.{$rgt}");
+            $inner->whereRaw("{$wa_child}.{$lft} not between {$wa_parent}.{$lft} and {$wa_parent}.{$rgt}")->orWhereRaw("{$wa_child}.{$lft} between {$wa_interm}.{$lft} and {$wa_interm}.{$rgt}")->whereRaw("{$wa_interm}.{$lft} between {$wa_parent}.{$lft} and {$wa_parent}.{$rgt}");
         });
         $this->model->apply_nested_set_scope($query, $parent_alias);
         $this->model->apply_nested_set_scope($query, $interm_alias);
@@ -628,16 +628,16 @@ class Query_Builder extends Builder
      */
     protected function get_missing_parent_query()
     {
-        return $this->model->new_nested_set_query()->to_base()->where_nested(function (Base_Query_Builder $inner): void {
-            $grammar = $this->query->get_grammar();
+        return $this->model->new_nested_set_query()->toBase()->whereNested(function (Query $inner): void {
+            $grammar = $this->query->getGrammar();
             $table = $this->wrapped_table();
             $key_name = $this->wrapped_key();
             $parent_id_name = $grammar->wrap($this->model->get_parent_id_name());
             $alias = 'p';
-            $wrapped_alias = $grammar->wrap_table($alias);
-            $exists_check = $this->model->new_nested_set_query()->to_base()->select_raw('1')->from($this->query->raw("{$table} as {$wrapped_alias}"))->where_raw("{$table}.{$parent_id_name} = {$wrapped_alias}.{$key_name}")->limit(1);
+            $wrapped_alias = $grammar->wrapTable($alias);
+            $exists_check = $this->model->new_nested_set_query()->toBase()->selectRaw('1')->from($this->query->raw("{$table} as {$wrapped_alias}"))->whereRaw("{$table}.{$parent_id_name} = {$wrapped_alias}.{$key_name}")->limit(1);
             $this->model->apply_nested_set_scope($exists_check, $alias);
-            $inner->where_raw("{$parent_id_name} is not null")->add_where_exists_query($exists_check, 'and', true);
+            $inner->whereRaw("{$parent_id_name} is not null")->addWhereExistsQuery($exists_check, 'and', true);
         });
     }
     /**
@@ -667,18 +667,18 @@ class Query_Builder extends Builder
      *
      * Nodes with invalid parent are saved as roots.
      *
-     * @param null|NodeTrait|Model $root
+     * @param null|Node_Trait|Model $root
      *
      * @return int The number of changed nodes
      */
     public function fix_tree($root = null)
     {
-        $columns = [$this->model->get_key_name(), $this->model->get_parent_id_name(), $this->model->get_lft_name(), $this->model->get_rgt_name()];
-        $dictionary = $this->model->new_nested_set_query()->when($root, fn(self $query) => $query->where_descendant_of($root))->default_order()->get($columns)->group_by($this->model->get_parent_id_name())->all();
+        $columns = [$this->model->getKeyName(), $this->model->get_parent_id_name(), $this->model->get_lft_name(), $this->model->get_rgt_name()];
+        $dictionary = $this->model->new_nested_set_query()->when($root, fn(self $query) => $query->where_descendant_of($root))->default_order()->get($columns)->groupBy($this->model->get_parent_id_name())->all();
         return $this->fix_nodes($dictionary, $root);
     }
     /**
-     * @param NodeTrait|Model $root
+     * @param Node_Trait|Model $root
      *
      * @return int
      */
@@ -687,12 +687,12 @@ class Query_Builder extends Builder
         return $this->fix_tree($root);
     }
     /**
-     * @param NodeTrait|Model|null $parent
+     * @param Node_Trait|Model|null $parent
      * @return int
      */
     protected function fix_nodes(array &$dictionary, $parent = null)
     {
-        $parent_id = $parent ? $parent->get_key() : null;
+        $parent_id = $parent ? $parent->getKey() : null;
         $cut = $parent ? $parent->get_lft() + 1 : 1;
         $updated = [];
         $moved = 0;
@@ -723,11 +723,11 @@ class Query_Builder extends Builder
         if (!isset($dictionary[$parent_id])) {
             return $cut;
         }
-        /** @var Model|NodeTrait $model */
+        /** @var Model|Node_Trait $model */
         foreach ($dictionary[$parent_id] as $model) {
             $lft = $cut;
-            $cut = self::reorder_nodes($dictionary, $updated, $model->get_key(), $cut + 1);
-            if ($model->raw_node($lft, $cut, $parent_id)->is_dirty()) {
+            $cut = self::reorder_nodes($dictionary, $updated, $model->getKey(), $cut + 1);
+            if ($model->raw_node($lft, $cut, $parent_id)->isDirty()) {
                 $updated[] = $model;
             }
             ++$cut;
@@ -748,22 +748,22 @@ class Query_Builder extends Builder
     public function rebuild_tree(array $data, $delete = false, $root = null)
     {
         if ($this->model->uses_soft_delete()) {
-            $this->with_trashed();
+            $this->withTrashed();
         }
-        $existing = $this->when($root, fn(self $query) => $query->where_descendant_of($root))->get()->get_dictionary();
+        $existing = $this->when($root, fn(self $query) => $query->where_descendant_of($root))->get()->getDictionary();
         $dictionary = [];
-        $parent_id = $root ? $root->get_key() : null;
+        $parent_id = $root ? $root->getKey() : null;
         $this->build_rebuild_dictionary($dictionary, $data, $existing, $parent_id);
-        /** @var Model|NodeTrait $model */
+        /** @var Model|Node_Trait $model */
         if (!empty($existing)) {
             if ($delete && !$this->model->uses_soft_delete()) {
-                $this->model->new_scoped_query()->where_in($this->model->get_key_name(), array_keys($existing))->delete();
+                $this->model->new_scoped_query()->whereIn($this->model->getKeyName(), array_keys($existing))->delete();
             } else {
                 foreach ($existing as $model) {
                     $dictionary[$model->get_parent_id()][] = $model;
-                    if ($delete && $this->model->uses_soft_delete() && !$model->{$model->get_deleted_at_column()}) {
-                        $time = $this->model->from_date_time($this->model->fresh_timestamp());
-                        $model->{$model->get_deleted_at_column()} = $time;
+                    if ($delete && $this->model->uses_soft_delete() && !$model->{$model->getDeletedAtColumn()}) {
+                        $time = $this->model->fromDateTime($this->model->freshTimestamp());
+                        $model->{$model->getDeletedAtColumn()} = $time;
                     }
                 }
             }
@@ -784,16 +784,16 @@ class Query_Builder extends Builder
      */
     protected function build_rebuild_dictionary(array &$dictionary, array $data, array &$existing, $parent_id = null)
     {
-        $key_name = $this->model->get_key_name();
+        $key_name = $this->model->getKeyName();
         foreach ($data as $item_data) {
-            /** @var NodeTrait|Model $model */
+            /** @var Node_Trait|Model $model */
             if (!isset($item_data[$key_name])) {
-                $model = $this->model->new_instance($this->model->get_attributes());
+                $model = $this->model->newInstance($this->model->getAttributes());
                 // Set some values that will be fixed later
                 $model->raw_node(0, 0, $parent_id);
             } else {
                 if (!isset($existing[$key = $item_data[$key_name]])) {
-                    throw new Model_Not_Found_Exception();
+                    throw new ModelNotFoundException();
                 }
                 $model = $existing[$key];
                 // Disable any tree actions
@@ -805,7 +805,7 @@ class Query_Builder extends Builder
             if (!isset($item_data['children'])) {
                 continue;
             }
-            $this->build_rebuild_dictionary($dictionary, $item_data['children'], $existing, $model->get_key());
+            $this->build_rebuild_dictionary($dictionary, $item_data['children'], $existing, $model->getKey());
         }
     }
     /**

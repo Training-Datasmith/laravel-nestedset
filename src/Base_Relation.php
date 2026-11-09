@@ -12,11 +12,11 @@ use InvalidArgumentException;
 abstract class Base_Relation extends Relation
 {
     /**
-     * @var QueryBuilder
+     * @var Query_Builder
      */
     protected $query;
     /**
-     * @var NodeTrait|Model
+     * @var Node_Trait|Model
      */
     protected $parent;
     /**
@@ -41,12 +41,12 @@ abstract class Base_Relation extends Relation
      */
     abstract protected function matches(Model $model, $related);
     /**
-     * @param QueryBuilder $query
+     * @param Query_Builder $query
      * @param Model $model
      *
      * @return void
      */
-    abstract protected function add_eager_constraint($query, $model);
+    abstract protected function addEagerConstraint($query, $model);
     /**
      * @param $hash
      * @param $table
@@ -55,21 +55,21 @@ abstract class Base_Relation extends Relation
      *
      * @return string
      */
-    abstract protected function relation_existence_condition($hash, $table, $lft, $rgt);
+    abstract protected function relationExistenceCondition($hash, $table, $lft, $rgt);
     /**
      * @param array $columns
      *
      * @return mixed
      */
-    public function get_relation_existence_query(Eloquent_Builder $query, Eloquent_Builder $parent, $columns = ['*'])
+    public function getRelationExistenceQuery(EloquentBuilder $query, EloquentBuilder $parent, $columns = ['*'])
     {
-        $query = $this->get_parent()->replicate()->new_scoped_query()->select($columns);
-        $table = $query->get_model()->get_table();
-        $query->from($table . ' as ' . $hash = $this->get_relation_count_hash());
-        $query->get_model()->set_table($hash);
-        $grammar = $query->get_query()->get_grammar();
-        $condition = $this->relation_existence_condition($grammar->wrap_table($hash), $grammar->wrap_table($table), $grammar->wrap($this->parent->get_lft_name()), $grammar->wrap($this->parent->get_rgt_name()));
-        return $query->where_raw($condition);
+        $query = $this->getParent()->replicate()->new_scoped_query()->select($columns);
+        $table = $query->getModel()->getTable();
+        $query->from($table . ' as ' . $hash = $this->getRelationCountHash());
+        $query->getModel()->setTable($hash);
+        $grammar = $query->getQuery()->getGrammar();
+        $condition = $this->relationExistenceCondition($grammar->wrapTable($hash), $grammar->wrapTable($table), $grammar->wrap($this->parent->get_lft_name()), $grammar->wrap($this->parent->get_rgt_name()));
+        return $query->whereRaw($condition);
     }
     /**
      * Initialize the relation on a set of models.
@@ -77,7 +77,7 @@ abstract class Base_Relation extends Relation
      * @param  string $relation
      * @return array
      */
-    public function init_relation(array $models, $relation)
+    public function initRelation(array $models, $relation)
     {
         return $models;
     }
@@ -87,7 +87,7 @@ abstract class Base_Relation extends Relation
      * @param  bool $incrementJoinCount
      * @return string
      */
-    public function get_relation_count_hash($increment_join_count = true)
+    public function getRelationCountHash($increment_join_count = true)
     {
         return 'nested_set_' . ($increment_join_count ? static::$self_join_count++ : static::$self_join_count);
     }
@@ -96,7 +96,7 @@ abstract class Base_Relation extends Relation
      *
      * @return mixed
      */
-    public function get_results()
+    public function getResults()
     {
         return $this->query->get();
     }
@@ -105,14 +105,14 @@ abstract class Base_Relation extends Relation
      *
      *
      */
-    public function add_eager_constraints(array $models): void
+    public function addEagerConstraints(array $models): void
     {
-        $this->query->where_nested(function (Builder $inner) use ($models): void {
+        $this->query->whereNested(function (Builder $inner) use ($models): void {
             // We will use this query in order to apply constraints to the
             // base query builder
-            $outer = $this->parent->new_query()->set_query($inner);
+            $outer = $this->parent->newQuery()->setQuery($inner);
             foreach ($models as $model) {
-                $this->add_eager_constraint($outer, $model);
+                $this->addEagerConstraint($outer, $model);
             }
         });
     }
@@ -123,11 +123,11 @@ abstract class Base_Relation extends Relation
      *
      * @return array
      */
-    public function match(array $models, Eloquent_Collection $results, $relation)
+    public function match(array $models, EloquentCollection $results, $relation)
     {
         foreach ($models as $model) {
-            $related = $this->match_for_model($model, $results);
-            $model->set_relation($relation, $related);
+            $related = $this->matchForModel($model, $results);
+            $model->setRelation($relation, $related);
         }
         return $models;
     }
@@ -135,9 +135,9 @@ abstract class Base_Relation extends Relation
      *
      * @return Collection
      */
-    protected function match_for_model(Model $model, Eloquent_Collection $results)
+    protected function matchForModel(Model $model, EloquentCollection $results)
     {
-        $result = $this->related->new_collection();
+        $result = $this->related->newCollection();
         foreach ($results as $related) {
             if ($this->matches($model, $related)) {
                 $result->push($related);
@@ -150,7 +150,7 @@ abstract class Base_Relation extends Relation
      *
      * @return mixed
      */
-    public function get_foreign_key_name()
+    public function getForeignKeyName()
     {
         // Return a stub value for relation
         // resolvers which need this function.

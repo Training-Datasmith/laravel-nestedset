@@ -31,19 +31,19 @@ class Nested_Set
      */
     public static function columns(Blueprint $table): void
     {
-        $table->unsigned_integer(self::LFT)->default(0);
-        $table->unsigned_integer(self::RGT)->default(0);
-        $table->unsigned_integer(self::PARENT_ID)->nullable();
+        $table->unsignedInteger(self::LFT)->default(0);
+        $table->unsignedInteger(self::RGT)->default(0);
+        $table->unsignedInteger(self::PARENT_ID)->nullable();
         $table->index(static::get_default_columns());
     }
     /**
-     * Drop NestedSet columns.
+     * Drop nested-set columns.
      */
     public static function drop_columns(Blueprint $table): void
     {
         $columns = static::get_default_columns();
-        $table->drop_index($columns);
-        $table->drop_column($columns);
+        $table->dropIndex($columns);
+        $table->dropColumn($columns);
     }
     /**
      * Get a list of default columns.
