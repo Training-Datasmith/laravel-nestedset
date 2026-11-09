@@ -34,6 +34,28 @@ const OLD_API_NAMES = [
 /**
  * @return array<string, true>
  */
+function load_repo_function_allowlist(string $path): array
+{
+    $allow = [];
+    if (!is_readable($path)) {
+        return $allow;
+    }
+    foreach (file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+        $allow[$line] = true;
+    }
+
+    return $allow;
+}
+
+function repo_function_allowlisted(array $repoFnAllow, string $relativePath, string $class, string $method): bool
+{
+    return isset($repoFnAllow["{$relativePath} {$class} {$method}"]);
+}
+
 function load_allowlist(string $path): array
 {
     $allow = [];
@@ -81,70 +103,20 @@ function repo_owned_identifier_violation(string $name, bool $isClass = false): b
 
 function allowlist_permits(array $allow, string $site, string $name, string $relativePath): bool
 {
-    $candidates = [
-        "{$relativePath} {$site} {$name}",
-        "{$site} {$name}",
-    ];
-    foreach ($candidates as $key) {
-        if (isset($allow[$key])) {
-            return true;
-        }
-    }
-
-    return false;
+    return isset($allow["{$relativePath} {$site} {$name}"]);
 }
 
-function laravel_hook_method_allowed(string $class, string $method): bool
+function method_declared_on_type(string $type, string $method): bool
 {
-    if ($class === '') {
-        return false;
-    }
-    if (!class_exists($class) && !trait_exists($class)) {
-        if (str_ends_with($class, '_Test')) {
-            return method_exists(PHPUnit\Framework\TestCase::class, $method);
-        }
-        if (str_ends_with($class, '_Trait') && method_exists(Illuminate\Database\Eloquent\Model::class, $method)) {
-            return true;
+    try {
+        if (!class_exists($type) && !trait_exists($type)) {
+            return false;
         }
 
-        return false;
-    }
-    try {
-        $rc = new ReflectionClass($class);
-        if ($rc->isTrait()) {
-            $expected_boot = 'boot' . $rc->getShortName();
-            if ($method === $expected_boot) {
-                return true;
-            }
-            if (method_exists(Illuminate\Database\Eloquent\Model::class, $method)) {
-                return true;
-            }
-        }
-        if (preg_match('/^set[A-Z].*Attribute$/', $method)) {
-            return true;
-        }
-        if ($rc->isSubclassOf(Illuminate\Database\Eloquent\Relations\Relation::class)) {
-            $relation_methods = [
-                'addConstraints',
-                'addEagerConstraints',
-                'addEagerConstraint',
-                'getResults',
-                'initRelation',
-                'getRelationExistenceQuery',
-                'getRelationCountHash',
-                'matchForModel',
-                'getForeignKeyName',
-                'relationExistenceCondition',
-            ];
-            if (in_array($method, $relation_methods, true)) {
-                return true;
-            }
-        }
+        return (new ReflectionClass($type))->hasMethod($method);
     } catch (ReflectionException) {
         return false;
     }
-
-    return false;
 }
 
 function parent_chain_declares_method(string $class, string $method): bool
@@ -154,10 +126,7 @@ function parent_chain_declares_method(string $class, string $method): bool
     }
     if (!class_exists($class) && !trait_exists($class)) {
         if (str_ends_with($class, '_Test')) {
-            return method_exists(PHPUnit\Framework\TestCase::class, $method);
-        }
-        if (str_ends_with($class, '_Trait') && method_exists(Illuminate\Database\Eloquent\Model::class, $method)) {
-            return true;
+            return method_declared_on_type(PHPUnit\Framework\TestCase::class, $method);
         }
 
         return false;
@@ -176,6 +145,58 @@ function parent_chain_declares_method(string $class, string $method): bool
     return false;
 }
 
+function laravel_trait_boot_method(string $class, string $method): bool
+{
+    if (!trait_exists($class) && !(class_exists($class) && (new ReflectionClass($class))->isTrait())) {
+        return false;
+    }
+    try {
+        $rc = new ReflectionClass($class);
+
+        return $method === 'boot' . $rc->getShortName();
+    } catch (ReflectionException) {
+        return false;
+    }
+}
+
+function repo_function_laravel_override(string $class, string $method): bool
+{
+    if (parent_chain_declares_method($class, $method)) {
+        return true;
+    }
+    if (laravel_trait_boot_method($class, $method)) {
+        return true;
+    }
+    if (!class_exists($class) && !trait_exists($class)) {
+        return false;
+    }
+    try {
+        $rc = new ReflectionClass($class);
+        if ($rc->isTrait() && method_declared_on_type(Illuminate\Database\Eloquent\Model::class, $method)) {
+            return true;
+        }
+        if ($rc->isSubclassOf(Illuminate\Database\Eloquent\Relations\Relation::class) && $rc->hasMethod($method)) {
+            $ref = $rc->getMethod($method);
+            if ($ref->getDeclaringClass()->getName() !== $class || $ref->isAbstract()) {
+                return true;
+            }
+        }
+    } catch (ReflectionException) {
+        return false;
+    }
+
+    return false;
+}
+
+function is_test_class_name(string $class): bool
+{
+    if (class_exists($class) && is_subclass_of($class, PHPUnit\Framework\TestCase::class)) {
+        return true;
+    }
+
+    return str_ends_with($class, '_Test');
+}
+
 function reflection_allows_call(string $class, string $function, string $called): bool
 {
     static $cache = [];
@@ -184,71 +205,29 @@ function reflection_allows_call(string $class, string $function, string $called)
         return $cache[$key];
     }
 
-    if (!class_exists($class) && !trait_exists($class)) {
-        if (str_ends_with($class, '_Test')) {
-            if (method_exists(PHPUnit\Framework\Assert::class, $called) || method_exists(PHPUnit\Framework\TestCase::class, $called)) {
-                return $cache[$key] = true;
-            }
-            $eloquent_types = [
-                Illuminate\Database\Eloquent\Model::class,
-                Illuminate\Database\Eloquent\Builder::class,
-                Illuminate\Database\Query\Builder::class,
-                Illuminate\Database\Connection::class,
-                Illuminate\Database\Schema\Blueprint::class,
-                Illuminate\Database\Schema\Builder::class,
-                Illuminate\Database\Capsule\Manager::class,
-                Illuminate\Database\Query\Grammars\Grammar::class,
-            ];
-            foreach ($eloquent_types as $eloquent_type) {
-                if (method_exists($eloquent_type, $called)) {
-                    return $cache[$key] = true;
-                }
-            }
-            if (method_exists(Illuminate\Database\Eloquent\Model::class, $called)) {
-                return $cache[$key] = true;
-            }
-        }
-        if (str_ends_with($class, '_Trait') && method_exists(Illuminate\Database\Eloquent\Model::class, $called)) {
-            return $cache[$key] = true;
-        }
-
-        return $cache[$key] = false;
-    }
-
-    try {
-        if ($function !== '' && method_exists($class, $function)) {
-            $ref = new ReflectionMethod($class, $function);
-            $declaring = $ref->getDeclaringClass();
-            if ($declaring->hasMethod($called)) {
-                return $cache[$key] = true;
-            }
-        }
-        $rc = new ReflectionClass($class);
-        while ($rc) {
-            if ($rc->hasMethod($called)) {
-                return $cache[$key] = true;
-            }
-            $rc = $rc->getParentClass();
-        }
-    } catch (ReflectionException) {
-        return $cache[$key] = false;
-    }
-
-  if (is_subclass_of($class, PHPUnit\Framework\TestCase::class) || str_ends_with($class, '_Test')) {
-        if (method_exists(PHPUnit\Framework\Assert::class, $called)) {
-            return $cache[$key] = true;
-        }
-        if (method_exists(PHPUnit\Framework\TestCase::class, $called)) {
-            return $cache[$key] = true;
-        }
-    }
-
-    if (method_exists(Illuminate\Database\Eloquent\SoftDeletes::class, $called)) {
+    if (parent_chain_declares_method($class, $called)) {
         return $cache[$key] = true;
     }
 
-    if (str_starts_with($class, 'Kalnoy\\Nestedset\\') || str_ends_with($class, '_Test')) {
-        $eloquent_types = [
+    if (class_exists($class) || trait_exists($class)) {
+        try {
+            $rc = new ReflectionClass($class);
+            if ($rc->hasMethod($called)) {
+                return $cache[$key] = true;
+            }
+        } catch (ReflectionException) {
+            // continue
+        }
+    }
+
+    if (is_test_class_name($class)) {
+        if (method_declared_on_type(PHPUnit\Framework\Assert::class, $called)) {
+            return $cache[$key] = true;
+        }
+        if (method_declared_on_type(PHPUnit\Framework\TestCase::class, $called)) {
+            return $cache[$key] = true;
+        }
+        foreach ([
             Illuminate\Database\Eloquent\Model::class,
             Illuminate\Database\Eloquent\Builder::class,
             Illuminate\Database\Query\Builder::class,
@@ -256,18 +235,56 @@ function reflection_allows_call(string $class, string $function, string $called)
             Illuminate\Database\Capsule\Manager::class,
             Illuminate\Database\Schema\Blueprint::class,
             Illuminate\Database\Schema\Builder::class,
-            Illuminate\Support\Collection::class,
-            Illuminate\Database\Eloquent\Collection::class,
             Illuminate\Database\Query\Grammars\Grammar::class,
             Illuminate\Database\Eloquent\Relations\Relation::class,
-        ];
-        foreach ($eloquent_types as $eloquent_type) {
-            if (method_exists($eloquent_type, $called)) {
+        ] as $eloquent_type) {
+            if (method_declared_on_type($eloquent_type, $called)) {
                 return $cache[$key] = true;
             }
         }
-        if (method_exists(Illuminate\Database\Eloquent\Model::class, $called)) {
-            return $cache[$key] = true;
+    }
+
+    if (method_declared_on_type(Illuminate\Database\Eloquent\SoftDeletes::class, $called)) {
+        return $cache[$key] = true;
+    }
+
+    if (class_exists($class) || trait_exists($class)) {
+        try {
+            $rc = new ReflectionClass($class);
+            foreach ($rc->getTraits() as $trait) {
+                if ($trait->hasMethod($called)) {
+                    return $cache[$key] = true;
+                }
+            }
+            foreach (class_uses_recursive($class) as $traitName) {
+                if (method_declared_on_type($traitName, $called)) {
+                    return $cache[$key] = true;
+                }
+            }
+        } catch (ReflectionException) {
+            // continue
+        }
+    }
+
+    if (str_starts_with($class, 'Kalnoy\\Nestedset\\') || trait_exists($class) && str_contains($class, 'Nestedset\\')) {
+        foreach ([
+            Illuminate\Database\Eloquent\Model::class,
+            Illuminate\Database\Eloquent\Builder::class,
+            Illuminate\Database\Query\Builder::class,
+            Illuminate\Database\Connection::class,
+            Illuminate\Database\Capsule\Manager::class,
+            Illuminate\Database\Schema\Blueprint::class,
+            Illuminate\Database\Schema\Builder::class,
+            Illuminate\Database\Query\Grammars\Grammar::class,
+            Illuminate\Database\Eloquent\Collection::class,
+            Illuminate\Support\Collection::class,
+            Illuminate\Database\Eloquent\Relations\Relation::class,
+            Illuminate\Database\Eloquent\Relations\BelongsTo::class,
+            Illuminate\Database\Eloquent\Relations\HasMany::class,
+        ] as $eloquent_type) {
+            if (method_declared_on_type($eloquent_type, $called)) {
+                return $cache[$key] = true;
+            }
         }
     }
 
@@ -310,7 +327,45 @@ function scan_docblock_idents(string $relativePath, string $code): array
 /**
  * @return list<string>
  */
-function scan_php_content(string $relativePath, string $code, array $allow): array
+function scan_markdown_content(string $relativePath, string $content): array
+{
+    $violations = [];
+    foreach (explode("\n", $content) as $num => $line) {
+        foreach (OLD_API_NAMES as $old) {
+            if (preg_match('/\b' . preg_quote($old, '/') . '\b/', $line)) {
+                $violations[] = "{$relativePath}:" . ($num + 1) . ": old API name {$old}";
+            }
+        }
+        if (preg_match_all('/`([a-zA-Z_][a-zA-Z0-9_]*)`/', $line, $matches)) {
+            foreach ($matches[1] as $ident) {
+                if (repo_owned_identifier_violation($ident)) {
+                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo identifier {$ident}";
+                }
+            }
+        }
+        if (preg_match_all('/::([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $line, $matches)) {
+            foreach ($matches[1] as $ident) {
+                if (repo_owned_identifier_violation($ident)) {
+                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo method {$ident}";
+                }
+            }
+        }
+        if (preg_match_all('/\$([a-zA-Z_][a-zA-Z0-9_]*)/', $line, $matches)) {
+            foreach ($matches[1] as $ident) {
+                if (repo_owned_identifier_violation($ident)) {
+                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo variable \${$ident}";
+                }
+            }
+        }
+    }
+
+    return $violations;
+}
+
+/**
+ * @return list<string>
+ */
+function scan_php_content(string $relativePath, string $code, array $allow, array $repoFnAllow): array
 {
     $violations = [];
     $class = null;
@@ -374,8 +429,8 @@ function scan_php_content(string $relativePath, string $code, array $allow): arr
             if ($j < $n && is_array($tokens[$j]) && token_name($tokens[$j][0]) === 'T_STRING') {
                 $function = $tokens[$j][1];
                 if (repo_owned_identifier_violation($function)
-                    && !parent_chain_declares_method($class ?? '', $function)
-                    && !laravel_hook_method_allowed($class ?? '', $function)) {
+                    && !repo_function_allowlisted($repoFnAllow, $relativePath, $class ?? '', $function)
+                    && !repo_function_laravel_override($class ?? '', $function)) {
                     $violations[] = "{$relativePath}:{$line}: repo function {$function}";
                 }
             }
@@ -431,7 +486,7 @@ function scan_php_content(string $relativePath, string $code, array $allow): arr
  * @param array<string, true> $allow
  * @return list<string>
  */
-function scan_repository(string $root, array $allow): array
+function scan_repository(string $root, array $allow, array $repoFnAllow): array
 {
     $violations = [];
     foreach (['src', 'tests', 'examples'] as $dir) {
@@ -452,11 +507,31 @@ function scan_repository(string $root, array $allow): array
             if ($code === false) {
                 continue;
             }
-            $violations = array_merge($violations, scan_php_content($rel, $code, $allow));
+            $violations = array_merge($violations, scan_php_content($rel, $code, $allow, $repoFnAllow));
         }
     }
 
-    foreach (['ARCHITECTURE.md'] as $doc) {
+    $mdFiles = [];
+    $proc = proc_open(
+        ['git', '-C', $root, 'ls-files', '*.md'],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes
+    );
+    if (is_resource($proc)) {
+        $out = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($proc);
+        foreach (preg_split('/\R/', trim((string) $out)) ?: [] as $rel) {
+            if ($rel !== '') {
+                $mdFiles[] = $rel;
+            }
+        }
+    }
+    if ($mdFiles === []) {
+        $mdFiles = ['ARCHITECTURE.md'];
+    }
+    foreach ($mdFiles as $doc) {
         $full = $root . '/' . $doc;
         if (!is_readable($full)) {
             continue;
@@ -465,13 +540,7 @@ function scan_repository(string $root, array $allow): array
         if ($content === false) {
             continue;
         }
-        foreach (explode("\n", $content) as $num => $line) {
-            foreach (OLD_API_NAMES as $old) {
-                if (preg_match('/\b' . preg_quote($old, '/') . '\b/', $line)) {
-                    $violations[] = "{$doc}:" . ($num + 1) . ": old API name {$old}";
-                }
-            }
-        }
+        $violations = array_merge($violations, scan_markdown_content($doc, $content));
     }
 
     return $violations;
@@ -480,7 +549,7 @@ function scan_repository(string $root, array $allow): array
 /**
  * @param array<string, true> $allow
  */
-function run_allowlist_demo(array $allow): void
+function run_allowlist_demo(array $allow, array $repoFnAllow): void
 {
     $allowWithAssertSame = $allow;
     $allowWithAssertSame['demo/good.php Demo_Good::test_demo assertSame'] = true;
@@ -508,11 +577,11 @@ class Demo_Good extends PHPUnit\Framework\TestCase
 PHP;
 
     $badViolations = array_filter(
-        scan_php_content('demo/bad.php', $bad, $allow),
+        scan_php_content('demo/bad.php', $bad, $allow, $repoFnAllow),
         static fn (string $v) => str_contains($v, 'assertSame')
     );
     $goodViolations = array_filter(
-        scan_php_content('demo/good.php', $good, $allowWithAssertSame),
+        scan_php_content('demo/good.php', $good, $allowWithAssertSame, $repoFnAllow),
         static fn (string $v) => str_contains($v, 'assertSame')
     );
 
@@ -525,18 +594,36 @@ PHP;
         exit(1);
     }
 
-    if (array_filter(scan_php_content('demo/bad.php', $bad, []), static fn (string $v) => str_contains($v, 'assertSame')) === []) {
-        fwrite(STDERR, "Allowlist demo: stubbed checker must still flag assertSame.\n");
+    $site_only = ['Demo_Bad::test_demo assertSame' => true];
+    if (allowlist_permits($site_only, 'Demo_Bad::test_demo', 'assertSame', 'demo/bad.php')) {
+        fwrite(STDERR, "Allowlist demo: file+Class::method required; site-only key must not permit.\n");
         exit(1);
     }
 
     fwrite(STDOUT, "allowlist demo: upstream name rejected outside listed site\n");
 }
 
-$allow = load_allowlist(__DIR__ . '/rename-allowlist.txt');
-run_allowlist_demo($allow);
+function run_markdown_demo(): void
+{
+    $bad = "- Use `Nested_Set::rebuildsTree()` with \$insertPoint\n";
+    $good = "- Use `Nested_Set::rebuild_tree()` with \$insert_point\n";
+    if (scan_markdown_content('demo.md', $bad) === []) {
+        fwrite(STDERR, "Markdown demo: expected camelCase violation.\n");
+        exit(1);
+    }
+    if (scan_markdown_content('demo.md', $good) !== []) {
+        fwrite(STDERR, "Markdown demo: snake_case doc must pass.\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "markdown demo: repo camelCase flagged in tracked docs\n");
+}
 
-$violations = scan_repository($root, $allow);
+$allow = load_allowlist(__DIR__ . '/rename-allowlist.txt');
+$repoFnAllow = load_repo_function_allowlist(__DIR__ . '/repo-function-allowlist.txt');
+run_allowlist_demo($allow, $repoFnAllow);
+run_markdown_demo();
+
+$violations = scan_repository($root, $allow, $repoFnAllow);
 $violations = array_values(array_unique($violations));
 
 if ($violations !== []) {

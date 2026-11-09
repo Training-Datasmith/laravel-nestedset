@@ -25,14 +25,14 @@ src/
 
 ## Extension Points
 - Override `get_lft_name()`, `get_rgt_name()`, and `get_parent_id_name()` to use custom column names.
-- Use `Nested_Set::rebuildsTree()` to repair corrupted `_lft`/`_rgt` values.
+- Use `Nested_Set::rebuild_tree()` to repair corrupted `_lft`/`_rgt` values.
 - Combine with `Collection::to_tree()` and a recursive Blade component for tree rendering.
 
 ## Dependency Flow
 ```
 $category->append_to_node($parent)->save()
   └─ Node_Trait::save()
-       └─ Query_Builder: UPDATE categories SET _lft = ..., _rgt = ... WHERE _lft >= $insertPoint
+       └─ Query_Builder: UPDATE categories SET _lft = ..., _rgt = ... WHERE _lft >= $insert_point
             └─ INSERT/UPDATE the node with its new _lft / _rgt / parent_id
 
 Category::where_descendant_of($parent)->get()

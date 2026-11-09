@@ -1,0 +1,10 @@
+# file FullyQualifiedClass repoFunctionName
+src/Node_Trait.php Kalnoy\Nestedset\Node_Trait setParentIdAttribute
+src/Base_Relation.php Kalnoy\Nestedset\Base_Relation addEagerConstraint
+src/Base_Relation.php Kalnoy\Nestedset\Base_Relation relationExistenceCondition
+src/Base_Relation.php Kalnoy\Nestedset\Base_Relation matchForModel
+src/Ancestors_Relation.php Kalnoy\Nestedset\Ancestors_Relation addEagerConstraint
+src/Ancestors_Relation.php Kalnoy\Nestedset\Ancestors_Relation relationExistenceCondition
+src/Descendants_Relation.php Kalnoy\Nestedset\Descendants_Relation addEagerConstraint
+src/Descendants_Relation.php Kalnoy\Nestedset\Descendants_Relation relationExistenceCondition
+src/Base_Relation.php Kalnoy\Nestedset\Base_Relation getForeignKeyName

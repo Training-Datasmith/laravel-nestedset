@@ -22,13 +22,17 @@ $packagistOnly = [
     'phpunit/phpunit' => [
         'https://github.com/sebastianbergmann/phpunit.git',
         'https://github.com/sebastianbergmann/phpunit/',
+        'https://api.github.com/repos/sebastianbergmann/phpunit/zipball/',
     ],
     'nesbot/carbon' => [
         'https://github.com/briannesbitt/Carbon.git',
         'https://github.com/CarbonPHP/carbon.git',
+        'https://api.github.com/repos/CarbonPHP/carbon/zipball/',
+        'https://api.github.com/repos/briannesbitt/Carbon/zipball/',
     ],
     'doctrine/inflector' => [
         'https://github.com/doctrine/inflector.git',
+        'https://api.github.com/repos/doctrine/inflector/zipball/',
     ],
 ];
 
@@ -232,18 +236,15 @@ function run_wrong_sha_demos(): void
 }
 
 /**
- * @param array<string, mixed> $installedPhp
- * @param array<string, mixed> $installedJson
- * @param array<string, list<string>> $packagistOnly
- * @param array<string, list<string>> $forbiddenIndexReferences
+ * @return list<string>
  */
-function assert_packagist_gaps(
+function evaluate_packagist_gaps(
     array $installedPhp,
     array $installedJson,
     array $packagistOnly,
     array $forbiddenIndexReferences
-): void {
-    $failed = false;
+): array {
+    $errors = [];
     $phpVersions = $installedPhp['versions'] ?? [];
 
     foreach (array_merge($installedJson['packages'] ?? [], $installedJson['packages-dev'] ?? []) as $package) {
@@ -252,22 +253,10 @@ function assert_packagist_gaps(
             continue;
         }
 
-        $url = (string) ($package['source']['url'] ?? '');
-        foreach ($packagistOnly[$name] as $allowed) {
-            if (str_starts_with($url, $allowed)) {
-                continue 2;
-            }
-        }
-        if (stripos($url, 'github.com/Training-Datasmith/') !== false) {
-            fwrite(STDERR, "Packagist gap violated for {$name}: Training-Datasmith source {$url}\n");
-            $failed = true;
-        }
-
         $jsonRef = strtolower((string) ($package['source']['reference'] ?? ''));
         foreach ($forbiddenIndexReferences[$name] ?? [] as $forbidden) {
             if ($jsonRef === strtolower($forbidden)) {
-                fwrite(STDERR, "Packagist gap violated for {$name}: index SHA in installed.json ({$jsonRef})\n");
-                $failed = true;
+                $errors[] = "Packagist gap violated for {$name}: index SHA in installed.json ({$jsonRef})";
             }
         }
 
@@ -276,22 +265,86 @@ function assert_packagist_gaps(
             $phpRef = strtolower((string) ($phpEntry['reference'] ?? ''));
             foreach ($forbiddenIndexReferences[$name] ?? [] as $forbidden) {
                 if ($phpRef === strtolower($forbidden)) {
-                    fwrite(STDERR, "Packagist gap violated for {$name}: index SHA in installed.php ({$phpRef})\n");
-                    $failed = true;
+                    $errors[] = "Packagist gap violated for {$name}: index SHA in installed.php ({$phpRef})";
                 }
             }
         }
+
+        foreach (['source' => $package['source']['url'] ?? '', 'dist' => $package['dist']['url'] ?? ''] as $kind => $url) {
+            $url = (string) $url;
+            if ($url === '') {
+                continue;
+            }
+            $allowed = false;
+            foreach ($packagistOnly[$name] as $prefix) {
+                if (str_starts_with($url, $prefix)) {
+                    $allowed = true;
+                    break;
+                }
+            }
+            if (!$allowed) {
+                $errors[] = "Packagist gap violated for {$name}: {$kind} URL not on allowlist ({$url})";
+            }
+        }
     }
-    if ($failed) {
+
+    return $errors;
+}
+
+function run_packagist_gap_demo(): void
+{
+    $allowed = ['https://github.com/sebastianbergmann/phpunit.git'];
+    $forbidden = ['a37d66fabf01af0eedabffe271b70dbe71723001'];
+    $fixture = [
+        'versions' => [
+            'phpunit/phpunit' => ['reference' => 'a37d66fabf01af0eedabffe271b70dbe71723001'],
+        ],
+    ];
+    $json = [
+        'packages-dev' => [[
+            'name' => 'phpunit/phpunit',
+            'source' => [
+                'url' => 'https://github.com/sebastianbergmann/phpunit.git',
+                'reference' => 'a37d66fabf01af0eedabffe271b70dbe71723001',
+            ],
+            'dist' => ['url' => ''],
+        ]],
+    ];
+    $errs = evaluate_packagist_gaps($fixture, $json, ['phpunit/phpunit' => $allowed], ['phpunit/phpunit' => $forbidden]);
+    if ($errs === []) {
+        fwrite(STDERR, "Packagist gap demo: index SHA with allowlisted URL must fail.\n");
         exit(1);
     }
+
+    $json['packages-dev'][0]['source']['url'] = 'https://github.com/example/wrong.git';
+    $json['packages-dev'][0]['source']['reference'] = '8b5f757e8e92071bfdbfa93943f94f84c4e31007';
+    $fixture['versions']['phpunit/phpunit']['reference'] = '8b5f757e8e92071bfdbfa93943f94f84c4e31007';
+    $errs = evaluate_packagist_gaps($fixture, $json, ['phpunit/phpunit' => $allowed], ['phpunit/phpunit' => $forbidden]);
+    if ($errs === []) {
+        fwrite(STDERR, "Packagist gap demo: non-allowlisted URL must fail.\n");
+        exit(1);
+    }
+
+    $stub = static fn (array $a, array $b, array $c, array $d): array => [];
+    if ($stub($fixture, $json, ['phpunit/phpunit' => $allowed], ['phpunit/phpunit' => $forbidden]) === []) {
+        fwrite(STDOUT, "Packagist gap demo: stub checker would miss gap\n");
+    }
+
+    fwrite(STDOUT, "Packagist gap demo: index SHA and URL enforced\n");
 }
 
 run_wrong_sha_demos();
+run_packagist_gap_demo();
 
 $vendor = load_vendor_pin_sources($root);
 $errors = evaluate_cluster_pins($vendor['installedPhp'], $vendor['installedJson'], $expected);
-assert_packagist_gaps($vendor['installedPhp'], $vendor['installedJson'], $packagistOnly, $forbiddenIndexReferences);
+$gapErrors = evaluate_packagist_gaps($vendor['installedPhp'], $vendor['installedJson'], $packagistOnly, $forbiddenIndexReferences);
+if ($gapErrors !== []) {
+    foreach ($gapErrors as $error) {
+        fwrite(STDERR, $error . "\n");
+    }
+    exit(1);
+}
 
 if ($errors !== []) {
     foreach ($errors as $error) {
