@@ -8,3 +8,6 @@ src/Ancestors_Relation.php Kalnoy\Nestedset\Ancestors_Relation relationExistence
 src/Descendants_Relation.php Kalnoy\Nestedset\Descendants_Relation addEagerConstraint
 src/Descendants_Relation.php Kalnoy\Nestedset\Descendants_Relation relationExistenceCondition
 src/Base_Relation.php Kalnoy\Nestedset\Base_Relation getForeignKeyName
+src/Node_Trait.php Kalnoy\Nestedset\Node_Trait newEloquentBuilder
+src/Node_Trait.php Kalnoy\Nestedset\Node_Trait newCollection
+src/Node_Trait.php Kalnoy\Nestedset\Node_Trait getArrayableRelations

@@ -14,7 +14,7 @@ $expected = [
     'symfony/polyfill-intl-grapheme' => ['alias' => '1.33.0', 'reference' => '137f223b5cb3ba256d8c52adea5e0e8594708e71', 'version' => 'dev-remote-test-2026-10-07'],
     'symfony/polyfill-intl-normalizer' => ['alias' => '1.33.0', 'reference' => 'c6839534bfcaf6a8b566e44e5bb971e672a678cd', 'version' => 'dev-remote-test-2026-10-07'],
     'symfony/polyfill-mbstring' => ['alias' => '1.33.0', 'reference' => '2cecae254e4ffc2c20ac379c5cd23d91c82109df', 'version' => 'dev-remote-test-2026-10-07'],
-    'voku/portable-ascii' => ['alias' => '2.0.3', 'reference' => '7671a909020d1c6a25dcb2f6e65e8b1776eaa2f5', 'version' => 'dev-remote-test-2026-11-09'],
+    'voku/portable-ascii' => ['alias' => '2.0.3', 'reference' => '1a1b5321f8297fd332a653c13b9880843d95c986', 'version' => 'dev-remote-test-2026-11-09'],
 ];
 
 /** @var array<string, list<string>> $packagistOnly */

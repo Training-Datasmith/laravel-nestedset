@@ -74,11 +74,11 @@ hit `save` on model (some methods implicitly call `save` and return boolean resu
 of the operation).
 
 If model is successfully saved it doesn't mean that node was moved. If your application
-depends on whether the node has actually changed its position, use `hasMoved` method:
+depends on whether the node has actually changed its position, use `has_moved` method:
 
 ```php
 if ($node->save()) {
-    $moved = $node->hasMoved();
+    $moved = $node->has_moved();
 }
 ```
 
@@ -101,10 +101,10 @@ In this case the node is considered a _root_ which means that it doesn't have a 
 
 ```php
 // #1 Implicit save
-$node->saveAsRoot();
+$node->save_as_root();
 
 // #2 Explicit save
-$node->makeRoot()->save();
+$node->make_root()->save();
 ```
 
 The node will be appended to the end of the tree.
@@ -119,10 +119,10 @@ There are few ways to append a node:
 
 ```php
 // #1 Using deferred insert
-$node->appendToNode($parent)->save();
+$node->append_to_node($parent)->save();
 
 // #2 Using parent node
-$parent->appendNode($node);
+$parent->append_node($node);
 
 // #3 Using parent's children relationship
 $parent->children()->create($attributes);
@@ -142,10 +142,10 @@ And only a couple ways to prepend:
 
 ```php
 // #1
-$node->prependToNode($parent)->save();
+$node->prepend_to_node($parent)->save();
 
 // #2
-$parent->prependNode($node);
+$parent->prepend_node($node);
 ```
 
 #### Inserting before or after specified node
@@ -157,12 +157,12 @@ it will be moved to the new position and parent will be changed if it's required
 
 ```php
 # Explicit save
-$node->afterNode($neighbor)->save();
-$node->beforeNode($neighbor)->save();
+$node->after_node($neighbor)->save();
+$node->before_node($neighbor)->save();
 
 # Implicit save
-$node->insertAfterNode($neighbor);
-$node->insertBeforeNode($neighbor);
+$node->insert_after_node($neighbor);
+$node->insert_before_node($neighbor);
 ```
 
 #### Building a tree from array
@@ -194,7 +194,7 @@ You can easily rebuild a tree. This is useful for mass-changing the structure of
 the tree.
 
 ```php
-Category::rebuildTree($data, $delete);
+Category::rebuild_tree($data, $delete);
 ```
 
 `$data` is an array of nodes:
@@ -221,7 +221,7 @@ in `$data`. By default, nodes aren't deleted.
 As of 4.2.8 you can rebuild a subtree:
 
 ```php
-Category::rebuildSubtree($root, $data);
+Category::rebuild_subtree($root, $data);
 ```
 
 This constraints tree rebuilding to descendants of `$root` node.
@@ -251,16 +251,16 @@ $node->descendants;
 It is possible to load ancestors and descendants using custom query:
 
 ```php
-$result = Category::ancestorsOf($id);
-$result = Category::ancestorsAndSelf($id);
-$result = Category::descendantsOf($id);
-$result = Category::descendantsAndSelf($id);
+$result = Category::ancestors_of($id);
+$result = Category::ancestors_and_self($id);
+$result = Category::descendants_of($id);
+$result = Category::descendants_and_self($id);
 ```
 
 In most cases, you need your ancestors to be ordered by the level:
 
 ```php
-$result = Category::defaultOrder()->ancestorsOf($id);
+$result = Category::default_order()->ancestors_of($id);
 ```
 
 A collection of ancestors can be eagerly loaded:
@@ -280,7 +280,7 @@ $categories = Category::with('ancestors')->paginate(30);
 Siblings are nodes that have same parent.
 
 ```php
-$result = $node->getSiblings();
+$result = $node->get_siblings();
 
 $result = $node->siblings()->get();
 ```
@@ -289,26 +289,26 @@ To get only next siblings:
 
 ```php
 // Get a sibling that is immediately after the node
-$result = $node->getNextSibling();
+$result = $node->get_next_sibling();
 
 // Get all siblings that are after the node
-$result = $node->getNextSiblings();
+$result = $node->get_next_siblings();
 
 // Get all siblings using a query
-$result = $node->nextSiblings()->get();
+$result = $node->next_siblings()->get();
 ```
 
 To get previous siblings:
 
 ```php
 // Get a sibling that is immediately before the node
-$result = $node->getPrevSibling();
+$result = $node->get_prev_sibling();
 
 // Get all siblings that are before the node
-$result = $node->getPrevSiblings();
+$result = $node->get_prev_siblings();
 
 // Get all siblings using a query
-$result = $node->prevSiblings()->get();
+$result = $node->prev_siblings()->get();
 ```
 
 #### Getting related models from other table
@@ -332,7 +332,7 @@ $goods = Goods::whereIn('category_id', $categories)->get();
 If you need to know at which level the node is:
 
 ```php
-$result = Category::withDepth()->find($id);
+$result = Category::with_depth()->find($id);
 
 $depth = $result->depth;
 ```
@@ -342,7 +342,7 @@ Root node will be at level 0. Children of root nodes will have a level of 1, etc
 To get nodes of specified level, you can apply `having` constraint:
 
 ```php
-$result = Category::withDepth()->having('depth', '=', 1)->get();
+$result = Category::with_depth()->having('depth', '=', 1)->get();
 ```
 
 __IMPORTANT!__ This will not work in database strict mode
@@ -356,10 +356,10 @@ displaying a tree. You can order nodes by alphabet or other index.
 But in some cases hierarchical order is essential. It is required for
 retrieving ancestors and can be used to order menu items.
 
-To apply tree order `defaultOrder` method is used:
+To apply tree order `default_order` method is used:
 
 ```php
-$result = Category::defaultOrder()->get();
+$result = Category::default_order()->get();
 ```
 
 You can get nodes in reversed order:
@@ -396,21 +396,21 @@ Various constraints that can be applied to the query builder:
 Descendants constraints:
 
 ```php
-$result = Category::whereDescendantOf($node)->get();
-$result = Category::whereNotDescendantOf($node)->get();
-$result = Category::orWhereDescendantOf($node)->get();
-$result = Category::orWhereNotDescendantOf($node)->get();
-$result = Category::whereDescendantAndSelf($id)->get();
+$result = Category::where_descendant_of($node)->get();
+$result = Category::where_not_descendant_of($node)->get();
+$result = Category::or_where_descendant_of($node)->get();
+$result = Category::or_where_not_descendant_of($node)->get();
+$result = Category::where_descendant_or_self($id)->get();
 
 // Include target node into result set
-$result = Category::whereDescendantOrSelf($node)->get();
+$result = Category::where_descendant_or_self($node)->get();
 ```
 
 Ancestor constraints:
 
 ```php
-$result = Category::whereAncestorOf($node)->get();
-$result = Category::whereAncestorOrSelf($id)->get();
+$result = Category::where_ancestor_of($node)->get();
+$result = Category::where_ancestor_or_self($id)->get();
 ```
 
 `$node` can be either a primary key of the model or model instance.
@@ -420,14 +420,14 @@ $result = Category::whereAncestorOrSelf($id)->get();
 After getting a set of nodes, you can convert it to tree. For example:
 
 ```php
-$tree = Category::get()->toTree();
+$tree = Category::get()->to_tree();
 ```
 
 This will fill `parent` and `children` relationships on every node in the set and
 you can render a tree using recursive algorithm:
 
 ```php
-$nodes = Category::get()->toTree();
+$nodes = Category::get()->to_tree();
 
 $traverse = function ($categories, $prefix = '-') use (&$traverse) {
     foreach ($categories as $category) {
@@ -457,7 +457,7 @@ after parent node. This is helpful when you get nodes with custom order
 (i.e. alphabetically) and don't want to use recursion to iterate over your nodes.
 
 ```php
-$nodes = Category::get()->toFlatTree();
+$nodes = Category::get()->to_flat_tree();
 ```
 
 Previous example will output:
@@ -476,7 +476,7 @@ Sometimes you don't need whole tree to be loaded and just some subtree of specif
 It is show in following example:
 
 ```php
-$root = Category::descendantsAndSelf($rootId)->toTree()->first();
+$root = Category::descendants_and_self($root_id)->to_tree()->first();
 ```
 
 In a single query we are getting a root of a subtree and all of its
@@ -485,7 +485,7 @@ descendants that are accessible via `children` relation.
 If you don't need `$root` node itself, do following instead:
 
 ```php
-$tree = Category::descendantsOf($rootId)->toTree($rootId);
+$tree = Category::descendants_of($root_id)->to_tree($root_id);
 ```
 
 ### Deleting nodes
@@ -513,34 +513,34 @@ This will break the tree!
 To check if node is a descendant of other node:
 
 ```php
-$bool = $node->isDescendantOf($parent);
+$bool = $node->is_descendant_of($parent);
 ```
 
 To check whether the node is a root:
 
 ```php
-$bool = $node->isRoot();
+$bool = $node->is_root();
 ```
 
 Other checks:
 
-*   `$node->isChildOf($other);`
-*   `$node->isAncestorOf($other);`
-*   `$node->isSiblingOf($other);`
-*   `$node->isLeaf()`
+*   `$node->is_child_of($other);`
+*   `$node->is_ancestor_of($other);`
+*   `$node->is_sibling_of($other);`
+*   `$node->is_leaf()`
 
 ### Checking consistency
 
 You can check whether a tree is broken (i.e. has some structural errors):
 
 ```php
-$bool = Category::isBroken();
+$bool = Category::is_broken();
 ```
 
 It is possible to get error statistics:
 
 ```php
-$data = Category::countErrors();
+$data = Category::count_errors();
 ```
 
 It will return an array with following keys:
@@ -558,19 +558,19 @@ Since v3.1 tree can now be fixed. Using inheritance info from `parent_id` column
 proper `_lft` and `_rgt` values are set for every node.
 
 ```php
-Node::fixTree();
+Node::fix_tree();
 ```
 
 ### Scoping
 
-Imagine you have `Menu` model and `MenuItems`. There is a one-to-many relationship
-set up between these models. `MenuItem` has `menu_id` attribute for joining models
-together. `MenuItem` incorporates nested sets. It is obvious that you would want to
+Imagine you have `Menu` model and `Menu_Items`. There is a one-to-many relationship
+set up between these models. `Menu_Item` has `menu_id` attribute for joining models
+together. `Menu_Item` incorporates nested sets. It is obvious that you would want to
 process each tree separately based on `menu_id` attribute. In order to do so, you
 need to specify this attribute as scope attribute:
 
 ```php
-protected function getScopeAttributes()
+protected function get_scope_attributes()
 {
     return [ 'menu_id' ];
 }
@@ -580,24 +580,24 @@ But now, in order to execute some custom query, you need to provide attributes
 that are used for scoping:
 
 ```php
-MenuItem::scoped([ 'menu_id' => 5 ])->withDepth()->get(); // OK
-MenuItem::descendantsOf($id)->get(); // WRONG: returns nodes from other scope
-MenuItem::scoped([ 'menu_id' => 5 ])->fixTree(); // OK
+Menu_Item::scoped([ 'menu_id' => 5 ])->with_depth()->get(); // OK
+Menu_Item::descendants_of($id)->get(); // WRONG: returns nodes from other scope
+Menu_Item::scoped([ 'menu_id' => 5 ])->fix_tree(); // OK
 ```
 
 When requesting nodes using model instance, scopes applied automatically based
 on the attributes of that model:
 
 ```php
-$node = MenuItem::findOrFail($id);
+$node = Menu_Item::findOrFail($id);
 
-$node->siblings()->withDepth()->get(); // OK
+$node->siblings()->with_depth()->get(); // OK
 ```
 
 To get scoped query builder using instance:
 
 ```php
-$node->newScopedQuery();
+$node->new_scoped_query();
 ```
 
 #### Scoping and eager loading
@@ -605,8 +605,8 @@ $node->newScopedQuery();
 Always use scoped query when eager loading:
 
 ```php
-MenuItem::scoped([ 'menu_id' => 5])->with('descendants')->findOrFail($id); // OK
-MenuItem::with('descendants')->findOrFail($id); // WRONG
+Menu_Item::scoped([ 'menu_id' => 5])->with('descendants')->findOrFail($id); // OK
+Menu_Item::with('descendants')->findOrFail($id); // WRONG
 ```
 
 Requirements
@@ -636,12 +636,12 @@ For Laravel 5.5 and above users:
 ```php
 Schema::create('table', function (Blueprint $table) {
     ...
-    $table->nestedSet();
+    $table->nested_set();
 });
 
 // To drop columns
 Schema::table('table', function (Blueprint $table) {
-    $table->dropNestedSet();
+    $table->drop_nested_set();
 });
 ```
 
@@ -649,11 +649,11 @@ For prior Laravel versions:
 
 ```php
 ...
-use Kalnoy\Nestedset\NestedSet;
+use Kalnoy\Nestedset\Nested_Set;
 
 Schema::create('table', function (Blueprint $table) {
     ...
-    NestedSet::columns($table);
+    Nested_Set::columns($table);
 });
 ```
 
@@ -661,22 +661,22 @@ To drop columns:
 
 ```php
 ...
-use Kalnoy\Nestedset\NestedSet;
+use Kalnoy\Nestedset\Nested_Set;
 
 Schema::table('table', function (Blueprint $table) {
-    NestedSet::dropColumns($table);
+    Nested_Set::dropColumns($table);
 });
 ```
 
 #### The model
 
-Your model should use `Kalnoy\Nestedset\NodeTrait` trait to enable nested sets:
+Your model should use `Kalnoy\Nestedset\Node_Trait` trait to enable nested sets:
 
 ```php
-use Kalnoy\Nestedset\NodeTrait;
+use Kalnoy\Nestedset\Node_Trait;
 
 class Foo extends Model {
-    use NodeTrait;
+    use Node_Trait;
 }
 ```
 
@@ -688,25 +688,25 @@ If your previous extension used different set of columns, you just need to overr
 following methods on your model class:
 
 ```php
-public function getLftName()
+public function get_lft_name()
 {
     return 'left';
 }
 
-public function getRgtName()
+public function get_rgt_name()
 {
     return 'right';
 }
 
-public function getParentIdName()
+public function get_parent_id_name()
 {
     return 'parent';
 }
 
 // Specify parent id attribute mutator
-public function setParentAttribute($value)
+public function set_parent_id_attribute($value)
 {
-    $this->setParentIdAttribute($value);
+    $this->set_parent_id_attribute($value);
 }
 ```
 
@@ -723,7 +723,7 @@ After [setting up your model](#the-model) you only need to fix the tree to fill
 `_lft` and `_rgt` columns:
 
 ```php
-MyModel::fixTree();
+MyModel::fix_tree();
 ```
 
 License
