@@ -4,9 +4,24 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-$manifestPath = __DIR__ . '/upstream-public-method-manifest.json';
 
-/** @var array<string, string> */
+/** Upstream kalnoy/nestedset tag pinned for public API parity. */
+const UPSTREAM_TAG = 'v6.0.6';
+const UPSTREAM_REPO = 'https://github.com/lazychaser/laravel-nestedset.git';
+
+/** @var array<string, string> local relative path => upstream src basename */
+const UPSTREAM_FILE_MAP = [
+    'src/Query_Builder.php' => 'QueryBuilder.php',
+    'src/Node_Trait.php' => 'NodeTrait.php',
+    'src/Collection.php' => 'Collection.php',
+    'src/Nested_Set.php' => 'NestedSet.php',
+    'src/Base_Relation.php' => 'BaseRelation.php',
+    'src/Ancestors_Relation.php' => 'AncestorsRelation.php',
+    'src/Descendants_Relation.php' => 'DescendantsRelation.php',
+    'src/Nested_Set_Service_Provider.php' => 'NestedSetServiceProvider.php',
+];
+
+/** @var array<string, true> upstream public method names kept as-is locally */
 const LARAVEL_CONVENTION_METHODS = [
     'setParentIdAttribute' => true,
     'newEloquentBuilder' => true,
@@ -22,122 +37,229 @@ const LARAVEL_CONVENTION_METHODS = [
     'register' => true,
     'addConstraints' => true,
     '__construct' => true,
-    'bootNode_Trait' => true,
 ];
+
+/** @var array<string, string> upstream method => local method when not snake_case */
+const UPSTREAM_TO_LOCAL_OVERRIDES = [
+    'bootNodeTrait' => 'bootNode_Trait',
+];
+
+function camel_to_snake(string $name): string
+{
+    return strtolower(preg_replace('/(?<!^)([A-Z])/', '_$1', $name) ?? $name);
+}
+
+function expected_local_method_name(string $upstreamMethod): string
+{
+    if (isset(UPSTREAM_TO_LOCAL_OVERRIDES[$upstreamMethod])) {
+        return UPSTREAM_TO_LOCAL_OVERRIDES[$upstreamMethod];
+    }
+    if (isset(LARAVEL_CONVENTION_METHODS[$upstreamMethod])) {
+        return $upstreamMethod;
+    }
+
+    return camel_to_snake($upstreamMethod);
+}
 
 /**
  * @return list<string>
  */
-function public_method_names(string $phpFile): array
+function public_method_names_from_source(string $code): array
 {
-    $code = file_get_contents($phpFile);
-    if ($code === false) {
-        return [];
-    }
     preg_match_all('/public (?:static )?function (\w+)/', $code, $matches);
 
     return $matches[1];
 }
 
 /**
- * @param array<string, string> $manifestEntry
+ * @return array{upstream: list<string>, expectedLocal: array<string, true>, local: list<string>}
+ */
+function build_file_parity(string $localRelative, string $upstreamSource): array
+{
+    $localPath = dirname(__DIR__) . '/' . $localRelative;
+    $localCode = file_get_contents($localPath);
+    if ($localCode === false) {
+        return ['upstream' => [], 'expectedLocal' => [], 'local' => []];
+    }
+    $upstream = public_method_names_from_source($upstreamSource);
+    $local = public_method_names_from_source($localCode);
+    $expectedLocal = [];
+    foreach ($upstream as $method) {
+        $expectedLocal[expected_local_method_name($method)] = true;
+    }
+
+    return ['upstream' => $upstream, 'expectedLocal' => $expectedLocal, 'local' => $local];
+}
+
+/**
+ * @param array<string, true> $expectedLocal
  * @return list<string>
  */
-function evaluate_manifest_file(string $relativePath, array $manifestEntry, string $root): array
+function evaluate_local_against_expected(string $relativePath, array $expectedLocal, array $local): array
 {
     $errors = [];
-    $full = $root . '/' . $relativePath;
-    if (!is_readable($full)) {
-        return ["{$relativePath}: file missing"];
-    }
-  $local = public_method_names($full);
     $localIndex = array_fill_keys($local, true);
+    $expectedCount = count($expectedLocal);
+    $localCount = count($local);
 
-    foreach ($manifestEntry as $upstream => $expectedLocal) {
-        $keepUpstream = isset(LARAVEL_CONVENTION_METHODS[$expectedLocal])
-            || isset(LARAVEL_CONVENTION_METHODS[$upstream]);
-        $want = $keepUpstream ? $upstream : $expectedLocal;
-        if ($want === 'bootNodeTrait') {
-            $want = 'bootNode_Trait';
-        }
+    foreach ($expectedLocal as $want => $_) {
         if (!isset($localIndex[$want])) {
-            $errors[] = "{$relativePath}: missing public method {$want} (upstream {$upstream})";
-        }
-    }
-
-    $manifestLocals = [];
-    foreach ($manifestEntry as $upstream => $expectedLocal) {
-        $keepUpstream = isset(LARAVEL_CONVENTION_METHODS[$expectedLocal])
-            || isset(LARAVEL_CONVENTION_METHODS[$upstream]);
-        $manifestLocals[$keepUpstream ? $upstream : $expectedLocal] = true;
-        if ($keepUpstream && $upstream === 'bootNodeTrait') {
-            $manifestLocals['bootNode_Trait'] = true;
+            $errors[] = "{$relativePath}: missing public method {$want}";
         }
     }
     foreach ($local as $method) {
-        if (isset($manifestLocals[$method])) {
-            continue;
+        if (!isset($expectedLocal[$method])) {
+            $errors[] = "{$relativePath}: unexpected public method {$method}";
         }
-        if (isset(LARAVEL_CONVENTION_METHODS[$method])) {
-            continue;
-        }
-        $errors[] = "{$relativePath}: unexpected public method {$method} (not mapped from upstream)";
     }
-
-    if (count($manifestEntry) !== count($local)) {
+    if ($expectedCount !== $localCount) {
         $errors[] = sprintf(
-            '%s: public method count %d != upstream manifest %d',
+            '%s: public method count local %d != upstream %d',
             $relativePath,
-            count($local),
-            count($manifestEntry)
+            $localCount,
+            $expectedCount
         );
     }
 
     return $errors;
 }
 
-function run_method_parity_demo(): void
+function upstream_checkout_is_valid(string $checkoutDir): bool
 {
-    $fakeRoot = dirname(__DIR__);
-    $good = evaluate_manifest_file('src/Collection.php', [
-        'linkNodes' => 'link_nodes',
-        'toTree' => 'to_tree',
-        'toFlatTree' => 'to_flat_tree',
-    ], $fakeRoot);
-    if ($good !== []) {
-        fwrite(STDERR, "Parity demo: Collection should pass.\n");
-        exit(1);
-    }
-    $bad = evaluate_manifest_file('src/Collection.php', [
-        'linkNodes' => 'link_nodes',
-        'toTree' => 'to_tree',
-    ], $fakeRoot);
-    if ($bad === []) {
-        fwrite(STDERR, "Parity demo: missing mapped method must fail.\n");
-        exit(1);
-    }
-    fwrite(STDOUT, "method parity demo: upstream count and 1:1 mapping enforced\n");
+    $probe = $checkoutDir . '/src/QueryBuilder.php';
+
+    return is_readable($probe);
 }
 
-if (!is_readable($manifestPath)) {
-    fwrite(STDERR, "Missing {$manifestPath}\n");
+function ensure_upstream_checkout(string $checkoutDir): bool
+{
+    if (is_dir($checkoutDir) && !upstream_checkout_is_valid($checkoutDir)) {
+        $proc = proc_open(
+            ['rm', '-rf', $checkoutDir],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        if (is_resource($proc)) {
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($proc);
+        }
+    }
+    if (upstream_checkout_is_valid($checkoutDir)) {
+        return true;
+    }
+    if (is_dir($checkoutDir)) {
+        return false;
+    }
+    $parent = dirname($checkoutDir);
+    if (!is_dir($parent) && !mkdir($parent, 0777, true) && !is_dir($parent)) {
+        return false;
+    }
+    $command = sprintf(
+        'git clone --depth 1 --branch %s --single-branch %s %s 2>&1',
+        escapeshellarg(UPSTREAM_TAG),
+        escapeshellarg(UPSTREAM_REPO),
+        escapeshellarg($checkoutDir)
+    );
+    exec($command, $output, $status);
+    if ($status !== 0) {
+        fwrite(STDERR, implode("\n", $output) . "\n");
+
+        return false;
+    }
+
+    return upstream_checkout_is_valid($checkoutDir);
+}
+
+/**
+ * @return array<string, string> upstream basename => file contents
+ */
+function load_upstream_sources(string $checkoutDir): array
+{
+    $out = [];
+    foreach (UPSTREAM_FILE_MAP as $upstreamBase) {
+        $path = $checkoutDir . '/src/' . $upstreamBase;
+        if (!is_readable($path)) {
+            fwrite(STDERR, "Upstream missing src/{$upstreamBase} under tag " . UPSTREAM_TAG . "\n");
+            exit(1);
+        }
+        $code = file_get_contents($path);
+        if ($code === false) {
+            fwrite(STDERR, "Could not read upstream src/{$upstreamBase}\n");
+            exit(1);
+        }
+        $out[$upstreamBase] = $code;
+    }
+
+    return $out;
+}
+
+/**
+ * @param array<string, true> $expectedLocal
+ * @return array{extra: list<string>, missing: list<string>}
+ */
+function parity_diff(array $expectedLocal, array $local): array
+{
+    $localIndex = array_fill_keys($local, true);
+    $missing = [];
+    foreach ($expectedLocal as $name => $_) {
+        if (!isset($localIndex[$name])) {
+            $missing[] = $name;
+        }
+    }
+    $extra = [];
+    foreach ($local as $name) {
+        if (!isset($expectedLocal[$name])) {
+            $extra[] = $name;
+        }
+    }
+
+    return ['extra' => $extra, 'missing' => $missing];
+}
+
+function run_method_parity_demos(): void
+{
+    $root = dirname(__DIR__);
+    $expected = ['link_nodes' => true, 'to_tree' => true, 'to_flat_tree' => true];
+    $goodLocal = ['link_nodes', 'to_tree', 'to_flat_tree'];
+    if (evaluate_local_against_expected('src/Collection.php', $expected, $goodLocal) !== []) {
+        fwrite(STDERR, "Parity demo: matching trio should pass.\n");
+        exit(1);
+    }
+
+    $withExtra = [...$goodLocal, 'where_descendant_and_self'];
+    $diffExtra = parity_diff($expected, $withExtra);
+    if ($diffExtra['extra'] === []) {
+        fwrite(STDERR, "Parity demo: extra public method must be detected.\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "method parity demo: extra public method rejected\n");
+
+    $withMissing = ['link_nodes', 'to_tree'];
+    $diffMissing = parity_diff($expected, $withMissing);
+    if ($diffMissing['missing'] === [] || count($withMissing) === count($expected)) {
+        fwrite(STDERR, "Parity demo: missing public method must be detected.\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "method parity demo: missing public method rejected\n");
+}
+
+$checkoutDir = sys_get_temp_dir() . '/nestedset-upstream-' . UPSTREAM_TAG;
+if (!ensure_upstream_checkout($checkoutDir)) {
+    fwrite(STDERR, 'Could not clone upstream tag ' . UPSTREAM_TAG . " into {$checkoutDir}\n");
     exit(1);
 }
 
-$raw = file_get_contents($manifestPath);
-/** @var array<string, array<string, string>>|null $manifest */
-$manifest = json_decode($raw ?: '', true);
-if (!is_array($manifest)) {
-    fwrite(STDERR, "Invalid manifest JSON\n");
-    exit(1);
-}
+run_method_parity_demos();
 
-run_method_parity_demo();
-
+$upstreamSources = load_upstream_sources($checkoutDir);
 $errors = [];
-foreach ($manifest as $file => $entry) {
-    $relative = str_starts_with($file, 'src/') ? $file : 'src/' . $file;
-    $errors = array_merge($errors, evaluate_manifest_file($relative, $entry, $root));
+foreach (UPSTREAM_FILE_MAP as $localRel => $upstreamBase) {
+    $parity = build_file_parity($localRel, $upstreamSources[$upstreamBase]);
+    $errors = array_merge(
+        $errors,
+        evaluate_local_against_expected($localRel, $parity['expectedLocal'], $parity['local'])
+    );
 }
 
 if ($errors !== []) {
@@ -147,5 +269,5 @@ if ($errors !== []) {
     exit(1);
 }
 
-fwrite(STDOUT, 'method parity check: upstream public methods map 1:1' . "\n");
+fwrite(STDOUT, "method parity check: tag " . UPSTREAM_TAG . " public methods map 1:1\n");
 exit(0);

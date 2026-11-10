@@ -400,7 +400,7 @@ $result = Category::where_descendant_of($node)->get();
 $result = Category::where_not_descendant_of($node)->get();
 $result = Category::or_where_descendant_of($node)->get();
 $result = Category::or_where_not_descendant_of($node)->get();
-$result = Category::where_descendant_and_self($id)->get();
+$result = Category::where_descendant_or_self($id)->get();
 
 // Include target node into result set
 $result = Category::where_descendant_or_self($node)->get();
@@ -703,11 +703,16 @@ public function get_parent_id_name()
     return 'parent';
 }
 
-// Laravel attribute mutator on the model
 public function setParentIdAttribute($value): void
 {
-    // set parent and append to scoped node when needed
-    $this->attributes[$this->get_parent_id_name()] = $value;
+    if ($this->get_parent_id() == $value) {
+        return;
+    }
+    if ($value) {
+        $this->append_to_node($this->new_scoped_query()->findOrFail($value));
+    } else {
+        $this->make_root();
+    }
 }
 ```
 

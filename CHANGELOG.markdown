@@ -30,7 +30,7 @@
 ### 4.2.3
 
 *   Added `where_ancestor_or_self`, `ancestors_and_self`, `descendants_or_self`,
-    `where_descendant_and_self`, `where_descendant_or_self` helper methods
+    `where_descendant_or_self` helper methods
 *   #186: rebuild tree removes nodes softly when model uses SoftDeletes trait
 *   #191: added `where_is_leaf` and `leaves` method, added `is_leaf` check on node
 

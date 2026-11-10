@@ -617,7 +617,7 @@ PHP;
 function run_markdown_demo(array $conventionNames): void
 {
     $bad = "- __whereIsRoot()__ and whereDescendantAndSelf(\$id) and `Nested_Set::dropColumns`\n";
-    $good = "- __where_is_root()__ and where_descendant_and_self(\$id) and `Nested_Set::drop_columns`\n";
+    $good = "- __where_is_root()__ and where_descendant_or_self(\$id) and `Nested_Set::drop_columns`\n";
     if (scan_markdown_content('demo.md', $bad, $conventionNames) === []) {
         fwrite(STDERR, "Markdown demo: expected camelCase violation.\n");
         exit(1);

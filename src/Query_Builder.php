@@ -238,11 +238,6 @@ class Query_Builder extends Builder
      *
      * @return $this
      */
-    public function where_descendant_and_self($id)
-    {
-        return $this->where_descendant_of($id, 'and', false, true);
-    }
-
     public function where_descendant_or_self($id, $boolean = 'and', $not = false)
     {
         return $this->where_descendant_of($id, $boolean, $not, true);
