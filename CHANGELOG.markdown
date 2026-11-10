@@ -30,7 +30,7 @@
 ### 4.2.3
 
 *   Added `where_ancestor_or_self`, `ancestors_and_self`, `descendants_or_self`,
-    `where_descendant_or_self` helper methods
+    `where_descendant_and_self`, `where_descendant_or_self` helper methods
 *   #186: rebuild tree removes nodes softly when model uses SoftDeletes trait
 *   #191: added `where_is_leaf` and `leaves` method, added `is_leaf` check on node
 
@@ -77,7 +77,7 @@
 
 *   Added query methods `where_not_descendant_of`, `or_where_descendant_of`, `or_where_not_descendant_of`
 *   `where_ancestor_of`, `where_descendant_of` and every method that depends on them can now accept node instance
-*   Added `Node::getBounds` that returns an array of node bounds that can be used in `where_node_between`
+*   Added `Node::get_bounds` that returns an array of node bounds that can be used in `where_node_between`
 
 ### 2.3.0
 

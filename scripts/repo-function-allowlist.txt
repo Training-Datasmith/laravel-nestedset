@@ -1,4 +1,5 @@
 # file FullyQualifiedClass repoFunctionName
+src/Node_Trait.php Kalnoy\Nestedset\Node_Trait bootNode_Trait
 src/Node_Trait.php Kalnoy\Nestedset\Node_Trait setParentIdAttribute
 src/Base_Relation.php Kalnoy\Nestedset\Base_Relation addEagerConstraint
 src/Base_Relation.php Kalnoy\Nestedset\Base_Relation relationExistenceCondition

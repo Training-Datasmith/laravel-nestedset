@@ -385,13 +385,13 @@ position.
 
 Various constraints that can be applied to the query builder:
 
--   __whereIsRoot()__ to get only root nodes;
--   __hasParent()__ to get non-root nodes;
--   __whereIsLeaf()__ to get only leaves;
--   __hasChildren()__ to get non-leave nodes;
--   __whereIsAfter($id)__ to get every node (not just siblings) that are after a node
+-   __where_is_root()__ to get only root nodes;
+-   __has_parent()__ to get non-root nodes;
+-   __where_is_leaf()__ to get only leaves;
+-   __has_children()__ to get non-leave nodes;
+-   __where_is_after($id)__ to get every node (not just siblings) that are after a node
     with specified id;
--   __whereIsBefore($id)__ to get every node that is before a node with specified id.
+-   __where_is_before($id)__ to get every node that is before a node with specified id.
 
 Descendants constraints:
 
@@ -400,7 +400,7 @@ $result = Category::where_descendant_of($node)->get();
 $result = Category::where_not_descendant_of($node)->get();
 $result = Category::or_where_descendant_of($node)->get();
 $result = Category::or_where_not_descendant_of($node)->get();
-$result = Category::where_descendant_or_self($id)->get();
+$result = Category::where_descendant_and_self($id)->get();
 
 // Include target node into result set
 $result = Category::where_descendant_or_self($node)->get();
@@ -664,7 +664,7 @@ To drop columns:
 use Kalnoy\Nestedset\Nested_Set;
 
 Schema::table('table', function (Blueprint $table) {
-    Nested_Set::dropColumns($table);
+    Nested_Set::drop_columns($table);
 });
 ```
 
@@ -703,10 +703,11 @@ public function get_parent_id_name()
     return 'parent';
 }
 
-// Specify parent id attribute mutator
-public function set_parent_id_attribute($value)
+// Laravel attribute mutator on the model
+public function setParentIdAttribute($value): void
 {
-    $this->set_parent_id_attribute($value);
+    // set parent and append to scoped node when needed
+    $this->attributes[$this->get_parent_id_name()] = $value;
 }
 ```
 

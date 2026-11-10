@@ -77,6 +77,8 @@ rm -f "${audit_out}"
 
 php -d error_reporting=32767 scripts/check-rename.php
 
+php -d error_reporting=32767 scripts/check-method-parity.php
+
 junit_file="/tmp/phpunit.junit.xml"
 phpunit_out="$(mktemp)"
 set +e

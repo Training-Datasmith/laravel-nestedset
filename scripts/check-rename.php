@@ -19,7 +19,6 @@ const UPSTREAM_MARKDOWN_IDENTIFIERS = [
     'unsignedInteger' => true,
     'softDeletes' => true,
     'dropColumn' => true,
-    'dropColumns' => true,
     'dropIndex' => true,
     'HasMany' => true,
     'HasOne' => true,
@@ -38,6 +37,118 @@ const UPSTREAM_MARKDOWN_IDENTIFIERS = [
 function is_upstream_markdown_identifier(string $name): bool
 {
     return isset(UPSTREAM_MARKDOWN_IDENTIFIERS[$name]);
+}
+
+/**
+ * @return array<string, true>
+ */
+function load_laravel_convention_markdown_names(string $repoFnAllowPath): array
+{
+    $names = [
+        'setParentIdAttribute' => true,
+        'bootNode_Trait' => true,
+    ];
+    if (is_readable($repoFnAllowPath)) {
+        foreach (file($repoFnAllowPath, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+            $parts = preg_split('/\s+/', $line);
+            if (isset($parts[2])) {
+                $names[$parts[2]] = true;
+            }
+        }
+    }
+
+    return $names;
+}
+
+/** @var list<string> */
+const MARKDOWN_SKIP_IDENTIFIERS = [
+    'if',
+    'for',
+    'foreach',
+    'while',
+    'switch',
+    'return',
+    'echo',
+    'function',
+    'class',
+    'use',
+    'new',
+    'public',
+    'protected',
+    'private',
+    'static',
+    'void',
+    'array',
+    'string',
+    'int',
+    'bool',
+    'Model',
+    'Schema',
+    'Blueprint',
+];
+
+function markdown_identifier_is_violation(string $ident, array $conventionNames): bool
+{
+    if ($ident === '' || in_array($ident, MARKDOWN_SKIP_IDENTIFIERS, true)) {
+        return false;
+    }
+    if (is_upstream_markdown_identifier($ident) || isset($conventionNames[$ident])) {
+        return false;
+    }
+
+    return repo_owned_identifier_violation($ident);
+}
+
+/**
+ * @return list<string>
+ */
+function extract_markdown_repo_identifiers(string $line): array
+{
+    $idents = [];
+    if (preg_match_all('/__([a-zA-Z_][a-zA-Z0-9_]*)\(\)__/', $line, $matches)) {
+        foreach ($matches[1] as $ident) {
+            $idents[] = $ident;
+        }
+    }
+    if (preg_match_all('/`([^`]+)`/', $line, $matches)) {
+        foreach ($matches[1] as $chunk) {
+            if (str_contains($chunk, '::')) {
+                $parts = explode('::', $chunk);
+                $method = end($parts);
+                if (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $method)) {
+                    $idents[] = $method;
+                }
+            } elseif (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $chunk)) {
+                $idents[] = $chunk;
+            }
+        }
+    }
+    if (preg_match_all('/::([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $line, $matches)) {
+        foreach ($matches[1] as $ident) {
+            $idents[] = $ident;
+        }
+    }
+    if (preg_match_all('/->([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $line, $matches)) {
+        foreach ($matches[1] as $ident) {
+            $idents[] = $ident;
+        }
+    }
+    if (preg_match_all('/(?<![:\\w$>])([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $line, $matches)) {
+        foreach ($matches[1] as $ident) {
+            $idents[] = $ident;
+        }
+    }
+    if (preg_match_all('/\$([a-zA-Z_][a-zA-Z0-9_]*)/', $line, $matches)) {
+        foreach ($matches[1] as $ident) {
+            $idents[] = $ident;
+        }
+    }
+
+    return array_values(array_unique($idents));
 }
 
 const OLD_API_NAMES = [
@@ -177,27 +288,9 @@ function parent_chain_declares_method(string $class, string $method): bool
     return false;
 }
 
-function laravel_trait_boot_method(string $class, string $method): bool
-{
-    if (!trait_exists($class) && !(class_exists($class) && (new ReflectionClass($class))->isTrait())) {
-        return false;
-    }
-    try {
-        $rc = new ReflectionClass($class);
-
-        return $method === 'boot' . $rc->getShortName();
-    } catch (ReflectionException) {
-        return false;
-    }
-}
-
 function repo_function_laravel_override(string $class, string $method): bool
 {
-    if (parent_chain_declares_method($class, $method)) {
-        return true;
-    }
-
-    return laravel_trait_boot_method($class, $method);
+    return parent_chain_declares_method($class, $method);
 }
 
 function reflection_allows_call(string $class, string $function, string $called): bool
@@ -258,7 +351,7 @@ function scan_docblock_idents(string $relativePath, string $code): array
 /**
  * @return list<string>
  */
-function scan_markdown_content(string $relativePath, string $content): array
+function scan_markdown_content(string $relativePath, string $content, array $conventionNames = []): array
 {
     $violations = [];
     foreach (explode("\n", $content) as $num => $line) {
@@ -267,32 +360,9 @@ function scan_markdown_content(string $relativePath, string $content): array
                 $violations[] = "{$relativePath}:" . ($num + 1) . ": old API name {$old}";
             }
         }
-        if (preg_match_all('/`([a-zA-Z_][a-zA-Z0-9_]*)`/', $line, $matches)) {
-            foreach ($matches[1] as $ident) {
-                if (!is_upstream_markdown_identifier($ident) && repo_owned_identifier_violation($ident)) {
-                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo identifier {$ident}";
-                }
-            }
-        }
-        if (preg_match_all('/::([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $line, $matches)) {
-            foreach ($matches[1] as $ident) {
-                if (!is_upstream_markdown_identifier($ident) && repo_owned_identifier_violation($ident)) {
-                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo method {$ident}";
-                }
-            }
-        }
-        if (preg_match_all('/->([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/', $line, $matches)) {
-            foreach ($matches[1] as $ident) {
-                if (!is_upstream_markdown_identifier($ident) && repo_owned_identifier_violation($ident)) {
-                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo method {$ident}";
-                }
-            }
-        }
-        if (preg_match_all('/\$([a-zA-Z_][a-zA-Z0-9_]*)/', $line, $matches)) {
-            foreach ($matches[1] as $ident) {
-                if (!is_upstream_markdown_identifier($ident) && repo_owned_identifier_violation($ident)) {
-                    $violations[] = "{$relativePath}:" . ($num + 1) . ": repo variable \${$ident}";
-                }
+        foreach (extract_markdown_repo_identifiers($line) as $ident) {
+            if (markdown_identifier_is_violation($ident, $conventionNames)) {
+                $violations[] = "{$relativePath}:" . ($num + 1) . ": repo identifier {$ident}";
             }
         }
     }
@@ -424,7 +494,7 @@ function scan_php_content(string $relativePath, string $code, array $allow, arra
  * @param array<string, true> $allow
  * @return list<string>
  */
-function scan_repository(string $root, array $allow, array $repoFnAllow): array
+function scan_repository(string $root, array $allow, array $repoFnAllow, array $markdownConvention): array
 {
     $violations = [];
     foreach (['src', 'tests', 'examples'] as $dir) {
@@ -481,7 +551,7 @@ function scan_repository(string $root, array $allow, array $repoFnAllow): array
         if ($content === false) {
             continue;
         }
-        $violations = array_merge($violations, scan_markdown_content($doc, $content));
+        $violations = array_merge($violations, scan_markdown_content($doc, $content, $markdownConvention));
     }
 
     return $violations;
@@ -544,19 +614,58 @@ PHP;
     fwrite(STDOUT, "allowlist demo: upstream name rejected outside listed site\n");
 }
 
-function run_markdown_demo(): void
+function run_markdown_demo(array $conventionNames): void
 {
-    $bad = "- \$node->appendToNode(\$parent) with `rebuildsTree` and \$insertPoint\n";
-    $good = "- \$node->append_to_node(\$parent) with `rebuild_tree` and \$insert_point\n";
-    if (scan_markdown_content('demo.md', $bad) === []) {
+    $bad = "- __whereIsRoot()__ and whereDescendantAndSelf(\$id) and `Nested_Set::dropColumns`\n";
+    $good = "- __where_is_root()__ and where_descendant_and_self(\$id) and `Nested_Set::drop_columns`\n";
+    if (scan_markdown_content('demo.md', $bad, $conventionNames) === []) {
         fwrite(STDERR, "Markdown demo: expected camelCase violation.\n");
         exit(1);
     }
-    if (scan_markdown_content('demo.md', $good) !== []) {
+    if (scan_markdown_content('demo.md', $good, $conventionNames) !== []) {
         fwrite(STDERR, "Markdown demo: snake_case doc must pass.\n");
         exit(1);
     }
-    fwrite(STDOUT, "markdown demo: repo camelCase flagged in tracked docs\n");
+    fwrite(STDOUT, "markdown demo: expanded contexts flag repo camelCase\n");
+}
+
+function run_drop_columns_markdown_demo(array $conventionNames): void
+{
+    $bad = 'Nested_Set::dropColumns($table)';
+    if (!markdown_identifier_is_violation('dropColumns', $conventionNames)) {
+        fwrite(STDERR, "dropColumns markdown demo: removed exemption must flag dropColumns.\n");
+        exit(1);
+    }
+    $good = scan_markdown_content('demo.md', "use `Nested_Set::drop_columns`.\n", $conventionNames);
+    if ($good !== []) {
+        fwrite(STDERR, "dropColumns markdown demo: drop_columns must pass.\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "markdown demo: Nested_Set::drop_columns required over dropColumns\n");
+}
+
+function run_convention_markdown_demo(array $conventionNames): void
+{
+    $sample = scan_markdown_content('demo.md', "`setParentIdAttribute` in prose.\n", $conventionNames);
+    if ($sample !== []) {
+        fwrite(STDERR, "Convention markdown demo: setParentIdAttribute should pass.\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "markdown demo: Laravel convention names allowed in docs\n");
+}
+
+function run_boot_trait_function_demo(array $repoFnAllow): void
+{
+    $bad = repo_function_laravel_override('Kalnoy\\Nestedset\\Node_Trait', 'bootNode_Trait');
+    if ($bad) {
+        fwrite(STDERR, "Boot trait demo: bootNode_Trait must not bypass via boot naming hack.\n");
+        exit(1);
+    }
+    if (!repo_function_allowlisted($repoFnAllow, 'src/Node_Trait.php', 'Kalnoy\\Nestedset\\Node_Trait', 'bootNode_Trait')) {
+        fwrite(STDERR, "Boot trait demo: bootNode_Trait must be on repo-function allowlist.\n");
+        exit(1);
+    }
+    fwrite(STDOUT, "boot trait demo: bootNode_Trait needs explicit repo-function row\n");
 }
 
 function run_reflection_strict_demo(): void
@@ -582,13 +691,17 @@ function run_reflection_strict_demo(): void
 
 $allow = load_allowlist(__DIR__ . '/rename-allowlist.txt');
 $repoFnAllow = load_repo_function_allowlist(__DIR__ . '/repo-function-allowlist.txt');
+$markdownConvention = load_laravel_convention_markdown_names(__DIR__ . '/repo-function-allowlist.txt');
 run_allowlist_demo($allow, $repoFnAllow);
-run_markdown_demo();
+run_markdown_demo($markdownConvention);
+run_drop_columns_markdown_demo($markdownConvention);
+run_convention_markdown_demo($markdownConvention);
+run_boot_trait_function_demo($repoFnAllow);
 run_reflection_strict_demo();
 
 bootstrap_reflection_classes($root);
 
-$violations = scan_repository($root, $allow, $repoFnAllow);
+$violations = scan_repository($root, $allow, $repoFnAllow, $markdownConvention);
 $violations = array_values(array_unique($violations));
 
 if ($violations !== []) {
